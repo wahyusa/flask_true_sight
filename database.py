@@ -123,11 +123,6 @@ class Database:
         return ()
 
 
-class Nullable:
-    def __init__(self, dataType) -> None:
-        self.type = dataType
-
-
 class Model:
 
     def __init__(self) -> None:
