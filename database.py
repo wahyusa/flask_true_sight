@@ -1,19 +1,21 @@
 from __future__ import annotations
 from TrueSightEngine import Logger
+import pymysql
 
 logger = Logger()
 
 
 class Database:
-    def __init__(self, mysql, database) -> None:
-        self.mysql = mysql
+    def __init__(self, host, user, password, database) -> None:
+        self.conn = pymysql.connect(
+            host=host, user=user, password=password, db=database)
         self.db_name = database
 
     def sql_escape_str(self, string: str) -> str:
-        return self.mysql.connection.converter.escape(string)
+        return self.conn.converter.escape(string)
 
     def get(self, table):
-        c = self.mysql.connection.cursor()
+        c = self.conn.cursor()
         query = 'SELECT * FROM `' + table + '`'
         try:
             if c.execute(query) == 1:
@@ -25,7 +27,7 @@ class Database:
         return ()
 
     def get_where(self, table, condition: dict):
-        c = self.mysql.connection.cursor()
+        c = self.conn.cursor()
         cond_query = list()
         for _ in condition.keys():
             cond_query.append(_ + "=%s")
@@ -41,7 +43,7 @@ class Database:
         return ()
 
     def update(self, table, parameters: dict):
-        c = self.mysql.connection.cursor()
+        c = self.conn.cursor()
         param = list()
         for _ in parameters.keys():
             param.append(_ + "=%s")
@@ -51,13 +53,13 @@ class Database:
             if c.execute(query, [x for x in parameters.values()]) == 1:
                 print("Number of rows affected by statement '{}': {}".format(
                     query, c.rowcount))
-                self.mysql.connection.commit()
+                self.conn.commit()
         except Exception as ex:
             logger.error("MYSQL UPDATE", ex)
         return ()
 
     def update_where(self, table, parameters: dict, where: dict):
-        c = self.mysql.connection.cursor()
+        c = self.conn.cursor()
         param = list()
         for _ in parameters.keys():
             param.append(_ + "=%s")
@@ -73,14 +75,14 @@ class Database:
             if c.execute(query, [x for x in parameters]) == 1:
                 print("Number of rows affected by statement '{}': {}".format(
                     query, c.rowcount))
-                self.mysql.connection.commit()
+                self.conn.commit()
         except Exception as ex:
             logger.error("MYSQL UPDATE", ex)
 
         return ()
 
     def insert(self, table, values: dict):
-        c = self.mysql.connection.cursor()
+        c = self.conn.cursor()
         fields = list()
         for field in values.keys():
             fields.append(field)
@@ -91,13 +93,13 @@ class Database:
             if c.execute(query, [x for x in values.values()]) == 1:
                 print("Number of rows affected by statement '{}': {}".format(
                     query, c.rowcount))
-                self.mysql.connection.commit()
+                self.conn.commit()
         except Exception as ex:
             logger.error("MYSQL UPDATE", ex)
         return ()
 
     def query(self, query: str):
-        c = self.mysql.connection.cursor()
+        c = self.conn.cursor()
         try:
             if c.execute(query):
                 if c.with_rows:
@@ -107,10 +109,11 @@ class Database:
                 else:
                     print("Number of rows affected by statement '{}': {}".format(
                         query, c.rowcount))
-                    self.mysql.connection.commit()
+                    self.conn.commit()
         except Exception as ex:
             logger.error("MYSQL QUERY", ex)
         return ()
+
 
 class Model:
 
