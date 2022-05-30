@@ -235,7 +235,7 @@ class TensorHelper:
 
     def loadTokenizer(self, filename: str):
         """Load bert tokenizer from file"""
-        if filename.startswith('gs://'):
+        if filename.startswith('/'):
             client = storage.Client()
             # Load from Google Cloud Storage
             logger.debug("Loaded from Google Cloud")
