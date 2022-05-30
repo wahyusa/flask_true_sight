@@ -39,6 +39,7 @@ class Logger:
         if not self.logFile is None:
             date = datetime.now().strftime("%d-%m-%Y %H:%M:%S")
             self.logFileWrite(f"[{date}] Error from {source}: {message}\n")
+        raise Exception(message)
 
     def info(self, source, message):
         message = str(message)
