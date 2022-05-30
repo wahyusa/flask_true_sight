@@ -6,7 +6,7 @@ logger = Logger()
 
 
 class Database:
-    def __init__(self, conn_name, user, password, database) -> None:
+    def __init__(self, host, user, password, database, conn_name) -> None:
         unix_socket = '/cloudsql/{}'.format(conn_name)
         self.conn = pymysql.connect(user=user, password=password, db=database, unix_socket=unix_socket)
         self.db_name = database

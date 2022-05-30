@@ -31,8 +31,8 @@ logger = Logger()
 tensorHelper = TensorHelper(0.7)
 
 # Load database from env
-db = Database(os.getenv('MYSQL_CONNECTION_NAME'), os.getenv('MYSQL_USER'),
-              os.getenv('MYSQL_PASSWORD'), os.getenv('MYSQL_DB'))
+db = Database(os.getenv('MYSQL_HOST'), os.getenv('MYSQL_USER'),
+              os.getenv('MYSQL_PASSWORD'), os.getenv('MYSQL_DB'), os.getenv('MYSQL_CONNECTION_NAME'))
 
 
 @app.route("/")
