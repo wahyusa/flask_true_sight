@@ -231,7 +231,7 @@ class TensorHelper:
 
     def loadTokenizer(self, filename: str):
         """Load bert tokenizer from file"""
-        if filename.startswith('gc://'):
+        if filename.startswith('gs://'):
             # Load from Google Cloud Storage
             with gcs.open(filename, 'rb') as handle:
                 self.bert_tokenizer = pickle.load(handle)
