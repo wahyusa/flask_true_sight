@@ -1,14 +1,28 @@
 from __future__ import annotations
 from TrueSightEngine import Logger
-import pymysql
+import sqlalchemy
 
 logger = Logger()
 
 
 class Database:
     def __init__(self, host, user, password, database, conn_name) -> None:
-        unix_socket = '/cloudsql/{}'.format(conn_name)
-        self.conn = pymysql.connect(host=host,user=user, password=password, db=database, unix_socket=unix_socket)
+        socket_dir = '/cloudsql'
+        self.conn = sqlalchemy.create_engine(
+        # Equivalent URL:
+        # mysql+pymysql://<db_user>:<db_pass>@/<db_name>?unix_socket=<socket_path>/<cloud_sql_instance_name>
+        sqlalchemy.engine.url.URL.create(
+            drivername="mysql+pymysql",
+            username=user,  # e.g. "my-database-user"
+            password=password,  # e.g. "my-database-password"
+            database=database,  # e.g. "my-database-name"
+            query={
+                "unix_socket": "{}/{}".format(
+                    socket_dir,  # e.g. "/cloudsql"
+                    conn_name)  # i.e "<PROJECT-NAME>:<INSTANCE-REGION>:<INSTANCE-NAME>"
+            }
+        )
+    )
         self.db_name = database
 
     def sql_escape_str(self, string: str) -> str:
