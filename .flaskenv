@@ -2,7 +2,7 @@
 FLASK_APP=app.py
 FLASK_RUN_PORT=8080
 MYSQL_HOST=127.0.0.1
-MYSQL_CONNECTION_NAME=truesight-db
+MYSQL_CONNECTION_NAME=advance-branch-351506:asia-southeast2:truesight-db
 MYSQL_USER=developer
 MYSQL_PASSWORD=googlesql@bangkit2022
 MYSQL_DB=true-sight
