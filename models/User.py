@@ -7,7 +7,7 @@ class User(Model):
         self.set(None, '', '', '', '')
         super().__init__()
 
-    def set(self, id, username: str, email: str, password: str, date_created: int, apioauth: str = None, verified: bool = None, votes: str = None, bookmarks: str = None) -> User:
+    def set(self, id, username: str, email: str, password: str, date_created: int, verified: bool = False, apioauth: str = None, votes: str = None, bookmarks: str = None) -> User:
         self.id = id
         self.username = username
         self.email = email
