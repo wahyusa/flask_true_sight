@@ -52,7 +52,6 @@ class Logger:
 
     def debug(self, message):
         message = str(message)
-        source = str(source)
         if self.debugMode:
             print('[DEBUG] ' + message)
 

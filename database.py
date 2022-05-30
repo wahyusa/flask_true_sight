@@ -32,6 +32,7 @@ class Database:
         self.conn = self.init_connection_pool().connect()
         self.db_name = database
 
+    # Source https://github.com/GoogleCloudPlatform/python-docs-samples/blob/main/cloud-sql/mysql/sqlalchemy/app.py
     def init_connection_pool(self) -> sqlalchemy.engine.base.Engine:
         # use a TCP socket when INSTANCE_HOST (e.g. 127.0.0.1) is defined
         if os.environ.get("INSTANCE_HOST"):
