@@ -23,7 +23,11 @@ import os
 load_dotenv()
 
 app = Flask(__name__)
-
+app.config['MYSQL_HOST'] = os.getenv('MYSQL_HOST')
+app.config['MYSQL_USER'] = os.getenv('MYSQL_USER')
+app.config['MYSQL_PASSWORD'] = os.getenv('MYSQL_PASSWORD')
+app.config['MYSQL_DB'] = os.getenv('MYSQL_DB')
+mysql = MySQL(app)
 # Bcrypt encrypt and check support
 bcrypt = Bcrypt(app)
 logger = Logger()
@@ -31,12 +35,7 @@ logger = Logger()
 tensorHelper = TensorHelper(0.7)
 
 # Load database from env
-db = Database(
-    host=os.getenv('MYSQL_HOST'),
-    user=os.getenv('MYSQL_USERNAME'),
-    password=os.getenv('MYSQL_PASS'),
-    database=os.getenv('MYSQL_DATABASE')
-)
+db = Database(mysql, os.getenv('MYSQL_DB'))
 
 
 @app.route("/")
@@ -95,17 +94,24 @@ def api():
 
         # Registration new user
         if data['type'] == 'registration':
+            data = dict(data)
+
+            # Validate input
+            if data.get('username', None) is None or data.get('password', None) is None or data.get('email', None) is None:
+                jsonify(api_res('failed', 'Invalid user input',
+                        'Registration', 0, '', {}))
+
             # Return failed if username is already use
             if len(db.get_where(
-                    'users', {'username': data['username']})) > 0:
+                    'users', {'username': data.get('username', None)})) > 0:
                 return jsonify(api_res('failed', 'Username already exist', 'Reg', 0, '', {}))
 
             # Insert new user into database
             db.insert('users', User().set(
                 None,
-                data['username'],
-                data['email'],
-                bcrypt.generate_password_hash(data['password']),
+                data.get('username', None),
+                data.get('email', None),
+                bcrypt.generate_password_hash(data.get('password', None)),
                 datetime.now().timestamp()
             ).get())
 
@@ -190,3 +196,8 @@ def addClaim():
     content_type = request.headers.get('Content-Type')
     if (content_type == 'application/json'):
         pass
+
+
+if __name__ == '__main__':
+    server_port = os.environ.get('PORT', '8080')
+    app.run(debug=False, port=server_port, host='0.0.0.0')
