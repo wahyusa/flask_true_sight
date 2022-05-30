@@ -11,7 +11,6 @@ class Database:
         self.conn = sqlalchemy.create_engine(
             sqlalchemy.engine.url.URL.create(
                 drivername="mysql+pymysql",
-                host=host,
                 username=user,
                 password=password,
                 database=database,
