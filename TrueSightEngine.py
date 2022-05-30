@@ -240,7 +240,7 @@ class TensorHelper:
             # Load from Google Cloud Storage
             logger.debug("Loaded from Google Cloud")
             bucket = client.get_bucket(os.getenv('BUCKET_NAME'))
-            blob = bucket.blob(filename)
+            blob = bucket.blob(filename[1:])
             self.bert_tokenizer = pickle.load(blob.open('rb'))
         else:
             # Load from local
