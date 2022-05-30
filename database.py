@@ -9,30 +9,25 @@ class Database:
     def __init__(self, host, user, password, database, conn_name) -> None:
         socket_dir = '/cloudsql'
         self.conn = sqlalchemy.create_engine(
-        # Equivalent URL:
-        # mysql+pymysql://<db_user>:<db_pass>@/<db_name>?unix_socket=<socket_path>/<cloud_sql_instance_name>
-        sqlalchemy.engine.url.URL.create(
-            drivername="mysql+pymysql",
-            username=user,  # e.g. "my-database-user"
-            password=password,  # e.g. "my-database-password"
-            database=database,  # e.g. "my-database-name"
-            query={
-                "unix_socket": "{}/{}".format(
-                    socket_dir,  # e.g. "/cloudsql"
-                    conn_name)  # i.e "<PROJECT-NAME>:<INSTANCE-REGION>:<INSTANCE-NAME>"
-            }
+            sqlalchemy.engine.url.URL.create(
+                drivername="mysql+pymysql",
+                host=host,
+                username=user,
+                password=password,
+                database=database 
+
+            )
         )
-    )
         self.db_name = database
 
     def sql_escape_str(self, string: str) -> str:
         return self.conn.converter.escape(string)
 
     def get(self, table):
-        c = self.conn.cursor()
         query = 'SELECT * FROM `' + table + '`'
         try:
-            if c.execute(query) == 1:
+            c = self.conn.execute(query)
+            if c.rowcount > 0:
                 print("Rows produced by statement '{}':".format(
                     query))
                 return c.fetchall()
@@ -41,14 +36,14 @@ class Database:
         return ()
 
     def get_where(self, table, condition: dict):
-        c = self.conn.cursor()
         cond_query = list()
         for _ in condition.keys():
             cond_query.append(_ + "=%s")
         query = 'SELECT * FROM `' + table + \
             '` WHERE ' + ' AND '.join(cond_query)
         try:
-            if c.execute(query, list(condition.values())) == 1:
+            c = self.conn.execute(query, list(condition.values()))
+            if c.rowcount > 0:
                 print("Rows produced by statement '{}':".format(
                     query))
                 return c.fetchall()
@@ -57,23 +52,21 @@ class Database:
         return ()
 
     def update(self, table, parameters: dict):
-        c = self.conn.cursor()
         param = list()
         for _ in parameters.keys():
             param.append(_ + "=%s")
         query = 'UPDATE `' + table + \
             '` SET ' + ','.join(param)
         try:
-            if c.execute(query, [x for x in parameters.values()]) == 1:
-                print("Number of rows affected by statement '{}': {}".format(
-                    query, c.rowcount))
-                self.conn.commit()
+            c = self.conn.execute(query, [x for x in parameters.values()])
+            print("Number of rows affected by statement '{}': {}".format(
+                query, c.rowcount))
+            self.conn.commit()
         except Exception as ex:
             logger.error("MYSQL UPDATE", ex)
         return ()
 
     def update_where(self, table, parameters: dict, where: dict):
-        c = self.conn.cursor()
         param = list()
         for _ in parameters.keys():
             param.append(_ + "=%s")
@@ -86,17 +79,16 @@ class Database:
         parameters = list(parameters.values())
         parameters.extend(where)
         try:
-            if c.execute(query, [x for x in parameters]) == 1:
+            c = self.conn.execute(query, [x for x in parameters])
+            if c.rowcount > 0:
                 print("Number of rows affected by statement '{}': {}".format(
                     query, c.rowcount))
-                self.conn.commit()
         except Exception as ex:
             logger.error("MYSQL UPDATE", ex)
 
         return ()
 
     def insert(self, table, values: dict):
-        c = self.conn.cursor()
         fields = list()
         for field in values.keys():
             fields.append(field)
@@ -104,26 +96,24 @@ class Database:
             '` (' + ','.join(fields) + ') VALUES (' + \
                 ','.join(['%s'] * len(values.keys())) + ")"
         try:
-            if c.execute(query, [x for x in values.values()]) == 1:
+            c = self.conn.execute(query, [x for x in values.values()])
+            if c.rowcount > 0:
                 print("Number of rows affected by statement '{}': {}".format(
                     query, c.rowcount))
-                self.conn.commit()
         except Exception as ex:
             logger.error("MYSQL UPDATE", ex)
         return ()
 
     def query(self, query: str):
-        c = self.conn.cursor()
         try:
-            if c.execute(query):
-                if c.with_rows:
-                    print("Rows produced by statement '{}':".format(
-                        query))
-                    return c.fetchall()
-                else:
-                    print("Number of rows affected by statement '{}': {}".format(
-                        query, c.rowcount))
-                    self.conn.commit()
+            c = self.conn.execute(query)
+            if c.rowcount > 0:
+                print("Rows produced by statement '{}':".format(
+                    query))
+                return c.fetchall()
+            else:
+                print("Number of rows affected by statement '{}': {}".format(
+                    query, c.rowcount))
         except Exception as ex:
             logger.error("MYSQL QUERY", ex)
         return ()
