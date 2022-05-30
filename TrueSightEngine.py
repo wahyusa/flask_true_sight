@@ -23,32 +23,41 @@ class Logger:
         self.logFile = logFile
         self.debugMode = debugMode
 
-    def logFileWrite(self, message: str):
+    def logFileWrite(self, message):
+        message = str(message)
         try:
             with open(self.logFile, 'a') as log:
                 log.write(message)
         except:
             pass
 
-    def error(self, source: str, message: str):
+    def error(self, source, message):
+        message = str(message)
+        source = str(source)
         if self.displayOutput:
             print('[ERROR] ' + message)
         if not self.logFile is None:
             date = datetime.now().strftime("%d-%m-%Y %H:%M:%S")
             self.logFileWrite(f"[{date}] Error from {source}: {message}\n")
 
-    def info(self, source: str, message: str):
+    def info(self, source, message):
+        message = str(message)
+        source = str(source)
         if self.displayOutput:
             print('[INFO] ' + message)
         if not self.logFile is None:
             date = datetime.now().strftime("%d-%m-%Y %H:%M:%S")
             self.logFileWrite(f"[{date}] Info from {source}: {message}\n")
 
-    def debug(self, message: str):
+    def debug(self, message):
+        message = str(message)
+        source = str(source)
         if self.debugMode:
             print('[DEBUG] ' + message)
 
-    def warn(self, source: str, message: str):
+    def warn(self, source, message):
+        message = str(message)
+        source = str(source)
         if self.displayOutput:
             print('[WARN] ' + message)
         if not self.logFile is None:
