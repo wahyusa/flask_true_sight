@@ -1,9 +1,10 @@
 #.flaskenv
 FLASK_APP=app.py
 FLASK_RUN_PORT=8080
-MYSQL_HOST=127.0.0.1
-MYSQL_CONNECTION_NAME=advance-branch-351506:us-central1:truesight-database
-MYSQL_USER=developer
-MYSQL_PASSWORD=googlesql@bangkit2022
-MYSQL_DB=true-sight
-MYSQL_PORT=3306
+DB_HOST=127.0.0.1
+INSTANCE_CONNECTION_NAME=advance-branch-351506:us-central1:truesight-database
+INSTANCE_UNIX_SOCKET=/cloudsql/advance-branch-351506:us-central1:truesight-database
+DB_USER=developer
+DB_PASS=googlesql@bangkit2022
+DB_NAME=true-sight
+DB_PORT=3306

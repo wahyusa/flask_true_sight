@@ -7,7 +7,6 @@ from datetime import datetime
 from helper import *
 import cloudstorage as gcs
 import os
-import pymysql
 
 # from google.appengine.api import app_identity
 
@@ -31,8 +30,8 @@ logger = Logger()
 tensorHelper = TensorHelper(0.7)
 
 # Load database from env
-db = Database(os.getenv('MYSQL_HOST'), os.getenv('MYSQL_USER'),
-              os.getenv('MYSQL_PASSWORD'), os.getenv('MYSQL_DB'), os.getenv('MYSQL_CONNECTION_NAME'))
+db = Database(os.getenv('DB_HOST'), os.getenv('DB_USER'),
+              os.getenv('DB_PASS'), os.getenv('DB_NAME'), os.getenv('INSTANCE_CONNECTION_NAME'))
 
 
 @app.route("/")
