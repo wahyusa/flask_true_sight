@@ -2,6 +2,7 @@ from dotenv import load_dotenv
 from flask import Flask, request
 from flask import jsonify
 from flask_bcrypt import Bcrypt
+from flask_mysqldb import MySQL
 from database import Database
 from datetime import datetime
 from helper import *
