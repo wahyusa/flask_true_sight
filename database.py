@@ -14,8 +14,12 @@ class Database:
                 host=host,
                 username=user,
                 password=password,
-                database=database 
-
+                database=database,
+                query={
+                "unix_socket": "{}/{}".format(
+                    socket_dir,  # e.g. "/cloudsql"
+                    conn_name)  # i.e "<PROJECT-NAME>:<INSTANCE-REGION>:<INSTANCE-NAME>"
+        }
             )
         )
         self.db_name = database
