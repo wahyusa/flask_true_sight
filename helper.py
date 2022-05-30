@@ -45,9 +45,11 @@ def predict(claim, tensorhelper: TensorHelper):
         logger.debug("Started Prediction")
         if not tensorhelper.is_model_loaded:
             logger.debug("Loaded Tensor Model")
-            tensorhelper.openModel('gs://truesight-bucket/model-indobert-base-p1-87')
+            tensorhelper.openModel(
+                'gs://truesight-bucket/model-indobert-base-p1-87')
             logger.debug("Loaded Tokenizer")
-            tensorhelper.loadTokenizer('gs://truesight-bucket/indobert-base-p1-tokenizer-87.pickle')
+            tensorhelper.loadTokenizer(
+                '/indobert-base-p1-tokenizer-87.pickle')
         predicted = tensorhelper.predict_claim(claim, 60)
         predicted['val_prediction'] = str(predicted['val_prediction'])
         predicted['prediction'] = str(predicted['prediction'])

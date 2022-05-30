@@ -1,6 +1,7 @@
 from transformers import BertTokenizer
 from sklearn.feature_extraction.text import TfidfVectorizer
 from nltk.corpus import stopwords
+from google.cloud import storage
 import nltk
 import string
 import numpy as np
@@ -8,7 +9,7 @@ import pandas as pd
 import tensorflow as tf
 from datetime import datetime
 import pickle
-import cloudstorage as gcs
+import os
 
 
 nltk.download('stopwords')
@@ -63,6 +64,9 @@ class Logger:
         if not self.logFile is None:
             date = datetime.now().strftime("%d-%m-%Y %H:%M:%S")
             self.logFileWrite(f"[{date}] Warning from {source}: {message}\n")
+
+
+logger = Logger()
 
 
 class TimeExecution:
@@ -232,9 +236,12 @@ class TensorHelper:
     def loadTokenizer(self, filename: str):
         """Load bert tokenizer from file"""
         if filename.startswith('gs://'):
+            client = storage.Client()
             # Load from Google Cloud Storage
-            with gcs.open(filename, 'rb') as handle:
-                self.bert_tokenizer = pickle.load(handle)
+            logger.debug("Loaded from Google Cloud")
+            bucket = client.get_bucket(os.getenv('BUCKET_NAME'))
+            blob = bucket.blob(filename)
+            self.bert_tokenizer = pickle.load(blob.download_as_bytes())
         else:
             # Load from local
             with open(filename, 'rb') as handle:

@@ -8,3 +8,4 @@ DB_USER=developer
 DB_PASS=googlesql@bangkit2022
 DB_NAME=true-sight
 DB_PORT=3306
+BUCKET_NAME=truesight-bucket
