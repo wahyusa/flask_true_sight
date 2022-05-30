@@ -1,14 +1,23 @@
 from __future__ import annotations
 from TrueSightEngine import Logger
+import mysql.connector
 
 logger = Logger()
 
 
 class Database:
-    def __init__(self, mysql, database) -> None:
-        self.mysql = mysql
+    def __init__(self, host, user, password, database, unix_socket) -> None:
+        self.conn = mysql.connector.connect(
+            host=host,
+            user=user,
+            password=password,
+            database=database,
+            unix_socket=unix_socket,
+            autocommit=True
+        )
         self.db_name = database
-
+        
+        
     def sql_escape_str(self, string: str) -> str:
         return self.mysql.connection.converter.escape(string)
 
