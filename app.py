@@ -208,7 +208,7 @@ def claim_api():
         return invalidRequest()
 
 
-@app.route('/uploads/<path>')
+@app.route('/uploads/<path>.*')
 def get_resources(path):
     return request.path
 
