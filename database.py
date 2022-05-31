@@ -2,7 +2,7 @@ from __future__ import annotations
 from TrueSightEngine import Logger
 import sqlalchemy
 
-from connect_unix import connect_unix
+from connect_unix import connect_unix_socket
 
 
 logger = Logger()
@@ -13,7 +13,7 @@ class Database:
     def __init__(self, host, user, password, database, conn_name, runOnLocal=0) -> None:
         print(runOnLocal)
         if runOnLocal == 0:
-            self.current_db = connect_unix()
+            self.current_db = connect_unix_socket().connect()
         else:
             self.current_db = sqlalchemy.create_engine(
                 sqlalchemy.engine.url.URL.create(
