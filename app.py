@@ -43,13 +43,13 @@ def home():
     return "<h1>Welcome to True Sight</h1>"
 
 
-@app.route("/api/", methods=['POST'])
+@app.route("/api/")
 def api():
     """API"""
     return "Welcome to True Sight API"
 
 
-@app.route("/api/auth", methods=['POST'])
+@app.route("/api/auth/", methods=['POST'])
 def auth():
     # Check is valid request and allow without api key
     if checkValidAPIrequest(request, db, allow_no_apikey=True):
@@ -93,7 +93,7 @@ def auth():
         return invalidRequest()
 
 
-@app.route("/api/registration", methods=['POST'])
+@app.route("/api/registration/", methods=['POST'])
 def reqistration():
     # Check is valid request and allow without api key
     if checkValidAPIrequest(request, db, allow_no_apikey=True):
@@ -132,7 +132,7 @@ def reqistration():
         return invalidRequest()
 
 
-@app.route("/api/search", methods=['POST'])
+@app.route("/api/search/", methods=['POST'])
 def search_api():
     if checkValidAPIrequest(request, db):
         data: dict = dict(request.get_json())
@@ -171,7 +171,7 @@ def search_api():
         return invalidRequest()
 
 
-@app.route("/api/predict", methods=['POST'])
+@app.route("/api/predict/", methods=['POST'])
 def predict_api():
     if checkValidAPIrequest(request, db):
         data: dict = dict(request.get_json())
@@ -187,7 +187,7 @@ def predict_api():
         return invalidRequest()
 
 
-@app.route("/api/profile", methods=['POST'])
+@app.route("/api/profile/", methods=['POST'])
 def profile_api():
     if checkValidAPIrequest(request, db):
         data: dict = dict(request.get_json())
@@ -197,7 +197,7 @@ def profile_api():
         return invalidRequest()
 
 
-@app.route("/api/claim", methods=['POST'])
+@app.route("/api/claim/", methods=['POST'])
 def claim_api():
     if checkValidAPIrequest(request, db):
         data: dict = dict(request.get_json())
@@ -210,7 +210,7 @@ def claim_api():
 
 @app.route('/uploads/<path>')
 def get_resources(path):
-    print(path)
+    return request.path
 
 
 if __name__ == '__main__':
