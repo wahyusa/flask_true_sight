@@ -171,7 +171,7 @@ def search_api():
         return invalidRequest()
 
 
-@ app.route("/api/predict", methods=['POST'])
+@app.route("/api/predict", methods=['POST'])
 def predict_api():
     if checkValidAPIrequest(request, db):
         data: dict = dict(request.get_json())
@@ -187,7 +187,7 @@ def predict_api():
         return invalidRequest()
 
 
-@ app.route("/api/profile", methods=['POST'])
+@app.route("/api/profile", methods=['POST'])
 def profile_api():
     if checkValidAPIrequest(request, db):
         data: dict = dict(request.get_json())
@@ -197,7 +197,7 @@ def profile_api():
         return invalidRequest()
 
 
-@ app.route("/api/claim", methods=['POST'])
+@app.route("/api/claim", methods=['POST'])
 def claim_api():
     if checkValidAPIrequest(request, db):
         data: dict = dict(request.get_json())
@@ -206,6 +206,11 @@ def claim_api():
 
     else:
         return invalidRequest()
+
+
+@app.route('/uploads/<path>')
+def get_resources(path):
+    print(path)
 
 
 if __name__ == '__main__':

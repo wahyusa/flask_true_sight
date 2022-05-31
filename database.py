@@ -19,7 +19,11 @@ class Database:
                     query={
                         "unix_socket": "/cloudsql/{}".format(conn_name)
                     }
-                )
+                ),
+                pool_size=5,
+                max_overflow=2,
+                pool_timeout=30,
+                pool_recycle=1800
             ).connect()
         else:
             self.conn = sqlalchemy.create_engine(
