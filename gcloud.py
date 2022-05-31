@@ -30,12 +30,41 @@ def isGoogleCloudPath(path: str) -> bool:
 def getBucketNameFromPath(path: str) -> str:
     pattern = r"^gs:\/\/([A-Za-z0-9-]+)"
     matches = re.match(pattern, path)
-    return matches.groups()[0][1:]
+    return matches.groups()[0]
 
 
-def isFolder(path: str) -> bool:
-    c = Client()
+def getPathWithoutBucket(path: str) -> str:
+    # Load from Google Cloud Storage
+    pattern = r"^gs:\/\/([A-Za-z0-9-]+)((?:\/[^\/]+)+)\/?$"
+    matches = re.match(pattern, path)
+    if (not matches is None):
+        return matches.groups()[1][1:]
+    else:
+        return None
 
-    text = getBlob('gs://truesight-bucket/test_folder')
-    print(text)
-    return False
+
+def isFolderExist(path: str) -> bool:
+    if path.endswith('/'):
+        return getBlob(path).exists()
+    else:
+        return getBlob(path + '/').exists()
+
+
+def getBlobs(dir: str) -> list:
+    storage_client = storage.Client()
+
+    # Note: Client.list_blobs requires at least package version 1.17.0.
+    bucket_name = getBucketNameFromPath(dir)
+    blobs = storage_client.list_blobs(bucket_name)
+    files = list()
+    for blob in blobs:
+        if blob.name.startswith(getPathWithoutBucket(dir)) and not blob.name == getPathWithoutBucket(dir):
+            files.append(blob)
+    return files
+
+
+def isFileExist(path: str) -> bool:
+    if path.endswith('/'):
+        return False
+    else:
+        return getBlob(path).exists()
