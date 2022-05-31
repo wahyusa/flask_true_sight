@@ -1,4 +1,5 @@
 from google.cloud import storage
+from google.cloud.client import Client
 import re
 
 
@@ -33,6 +34,8 @@ def getBucketNameFromPath(path: str) -> str:
 
 
 def isFolder(path: str) -> bool:
+    c = Client()
+
     text = getBlob('gs://truesight-bucket/test_folder')
     print(text)
     return False
