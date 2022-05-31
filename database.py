@@ -13,7 +13,7 @@ class Database:
     def __init__(self, host, user, password, database, conn_name, runOnLocal=0) -> None:
         print(runOnLocal)
         if runOnLocal == 0:
-            self.current_db = connect_unix_socket().connect()
+            self.current_db = connect_unix_socket()
         else:
             self.current_db = sqlalchemy.create_engine(
                 sqlalchemy.engine.url.URL.create(
