@@ -6,8 +6,8 @@ from flask import jsonify
 import gcloud as gcs
 import string
 import base64
-from TrueSightEngine import SearchEngine, TensorHelper, TimeExecution, Logger
 import magic
+from TrueSightEngine import SearchEngine, TensorHelper, TimeExecution, Logger
 
 
 def api_res(status: str, message: str, source: str, total: int, dataname: str, data):
@@ -32,9 +32,8 @@ logger = Logger()
 
 
 def addAttachment(source, dest, filename: str):
-    mime = magic
     bytes_data = base64.b64decode(source)
-    file_mime_type = mime.from_buffer(bytes_data)
+    file_mime_type = magic.from_buffer(bytes_data)
     if file_mime_type == "image/jpeg":
         os.mkdir(os.path.join(os.getcwd(), dest))
         if not filename.lower().endswith('.jpg'):
@@ -42,13 +41,6 @@ def addAttachment(source, dest, filename: str):
         upload_file = gcs.getBlob(filename).open("wb")
         upload_file.write(bytes_data)
         upload_file.close()
-
-
-def getMime(filename):
-    mime = magic
-    bytes_data = open(filename).buffer
-    file_mime_type = mime.from_buffer(bytes_data)
-    return file_mime_type
 
 
 def predict(claim, tensorhelper: TensorHelper):
@@ -88,7 +80,7 @@ def isValidApiKey(api_key: str, db) -> bool:
 
 def checkValidAPIrequest(request, db, allow_no_apikey=False, content_type='application/json') -> bool:
     # check if content type is equal
-    if request.headers.get('Content-Type') == content_type:
+    if request.headers.get('Content-Type') == content_type or content_type is None:
         if allow_no_apikey:
             return True
         else:
@@ -103,7 +95,7 @@ def checkValidAPIrequest(request, db, allow_no_apikey=False, content_type='appli
 
 
 def invalidUserInput(source: str):
-    return jsonify(api_res('failed', 'Invalid user input',  source, 0, '', {}))
+    return api_res('failed', 'Invalid user input',  source, 0, '', {})
 
 
 def getUserFromApiKey(api_key: str, db) -> User:
