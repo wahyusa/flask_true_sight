@@ -8,9 +8,9 @@ def getBlob(path: str) -> storage.Blob:
     pattern = r"^gs:\/\/([A-Za-z0-9-]+)((?:\/[^\/]+)+)\/?$"
     matches = re.match(pattern, path)
     if (not matches is None):
-        bucket_name = matches.groups[1]
+        bucket_name = matches.groups()[0]
         bucket = client.get_bucket(bucket_name)
-        file_path = matches.groups[2]
+        file_path = matches.groups()[1][1:]
         blob = bucket.blob(file_path)
     else:
         raise Exception("Not valid Google Cloud File Path")
@@ -29,4 +29,10 @@ def isGoogleCloudPath(path: str) -> bool:
 def getBucketNameFromPath(path: str) -> str:
     pattern = r"^gs:\/\/([A-Za-z0-9-]+)"
     matches = re.match(pattern, path)
-    return matches.groups[1]
+    return matches.groups()[0][1:]
+
+
+def isFolder(path: str) -> bool:
+    text = getBlob('gs://truesight-bucket/test_folder')
+    print(text)
+    return False

@@ -9,8 +9,9 @@ logger = Logger()
 class Database:
 
     def __init__(self, host, user, password, database, conn_name, runOnLocal=0) -> None:
+        print(runOnLocal)
         if runOnLocal == 0:
-            self.conn = sqlalchemy.create_engine(
+            self.current_db = sqlalchemy.create_engine(
                 sqlalchemy.engine.url.URL.create(
                     drivername="mysql+pymysql",
                     username=user,
@@ -24,9 +25,9 @@ class Database:
                 max_overflow=2,
                 pool_timeout=30,
                 pool_recycle=1800
-            ).connect()
+            )
         else:
-            self.conn = sqlalchemy.create_engine(
+            self.current_db = sqlalchemy.create_engine(
                 sqlalchemy.engine.url.URL.create(
                     drivername="mysql+pymysql",
                     host=host,
@@ -34,8 +35,8 @@ class Database:
                     password=password,
                     database=database
                 )
-            ).connect()
-
+            )
+        self.conn = self.current_db.connect()
         self.db_name = database
 
     def sql_escape_str(self, string: str) -> str:

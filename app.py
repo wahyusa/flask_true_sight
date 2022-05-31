@@ -1,9 +1,11 @@
+from werkzeug.routing import BaseConverter
 from helper import *
 from dotenv import load_dotenv
 from flask import Flask, request
 from flask_bcrypt import Bcrypt
 from database import Database
 from datetime import datetime
+import gcloud as gcs
 import os
 
 # from google.appengine.api import app_identity
@@ -43,7 +45,7 @@ def home():
     return "<h1>Welcome to True Sight</h1>"
 
 
-@app.route("/api/")
+@app.route("/api")
 def api():
     """API"""
     return "Welcome to True Sight API"
@@ -208,8 +210,18 @@ def claim_api():
         return invalidRequest()
 
 
-@app.route('/uploads/<path>.*')
+class RegexConverter(BaseConverter):
+    def __init__(self, url_map, *items):
+        super(RegexConverter, self).__init__(url_map)
+        self.regex = items[0]
+
+
+app.url_map.converters['regex'] = RegexConverter
+
+
+@app.route('/uploads/<regex(".*"):path>')
 def get_resources(path):
+    gcs.isFolder(path)
     return request.path
 
 
