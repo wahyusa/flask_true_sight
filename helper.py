@@ -2,6 +2,7 @@ import os
 from random import Random
 from models.User import User
 from models.Claim import Claim
+from flask import jsonify
 import cloudstorage as gcs
 import string
 import base64
@@ -11,14 +12,18 @@ import magic
 
 def api_res(status: str, message: str, source: str, total: int, dataname: str, data):
     """Output API"""
-    return {
+    return jsonify({
         'data': data,
         'dataname': dataname,
         'message': message,
         'source': source,
         'status': status,
         'total': total
-    }
+    })
+
+
+def invalidRequest():
+    return api_res('failed', 'Invalid Request or access denied', '', 0, '', {})
 
 
 random = Random()
@@ -27,6 +32,7 @@ logger = Logger()
 
 
 def addAttachment(source, dest, filename: str):
+    mime = magic
     bytes_data = base64.b64decode(source)
     file_mime_type = mime.from_buffer(bytes_data)
     if file_mime_type == "image/jpeg":
@@ -45,11 +51,16 @@ def predict(claim, tensorhelper: TensorHelper):
         logger.debug("Started Prediction")
         if not tensorhelper.is_model_loaded:
             logger.debug("Loaded Tensor Model")
-            tensorhelper.openModel(
-                'gs://truesight-bucket/model-indobert-base-p1-87')
-            logger.debug("Loaded Tokenizer")
-            tensorhelper.loadTokenizer(
-                '/indobert-base-p1-tokenizer-87.pickle')
+            if int(os.environ.get("LOCAL", 0)) == 1:
+                tensorhelper.openModel(
+                    '/home/rvinz/Documents/Github/tensor_model/indobert-base-p1-87')
+                logger.debug("Loaded Tokenizer")
+                tensorhelper.loadTokenizer(
+                    '/home/rvinz/Documents/Github/tensor_model/indobert-base-p1-tokenizer-87.pickle')
+            else:
+                tensorhelper.openModel(os.environ.get('MODEL_PATH'))
+                logger.debug("Loaded Tokenizer")
+                tensorhelper.loadTokenizer(os.environ.get('TOKENIZER_PATH'))
         predicted = tensorhelper.predict_claim(claim, 60)
         predicted['val_prediction'] = str(predicted['val_prediction'])
         predicted['prediction'] = str(predicted['prediction'])
@@ -66,6 +77,26 @@ def isValidApiKey(api_key: str, db) -> bool:
     if (len(result) > 0):
         return True
     return False
+
+
+def checkValidAPIrequest(request, db, allow_no_apikey=False, content_type='application/json') -> bool:
+    # check if content type is equal
+    if request.headers.get('Content-Type') == content_type:
+        if allow_no_apikey:
+            return True
+        else:
+            # check if api key is valid
+            return isValidApiKey(request.headers.get('x-api-key', None), db)
+    else:
+        if allow_no_apikey:
+            return True
+        else:
+            # check if api key is valid
+            return isValidApiKey(request.headers.get('x-api-key', None), db)
+
+
+def invalidUserInput(source: str):
+    return jsonify(api_res('failed', 'Invalid user input',  source, 0, '', {}))
 
 
 def getUserFromApiKey(api_key: str, db) -> User:

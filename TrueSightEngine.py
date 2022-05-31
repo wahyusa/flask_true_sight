@@ -1,7 +1,6 @@
 from transformers import BertTokenizer
 from sklearn.feature_extraction.text import TfidfVectorizer
 from nltk.corpus import stopwords
-from google.cloud import storage
 import nltk
 import string
 import numpy as np
@@ -9,7 +8,7 @@ import pandas as pd
 import tensorflow as tf
 from datetime import datetime
 import pickle
-import os
+import gcloud as gcs
 
 
 nltk.download('stopwords')
@@ -27,8 +26,12 @@ class Logger:
     def logFileWrite(self, message):
         message = str(message)
         try:
-            with open(self.logFile, 'a') as log:
-                log.write(message)
+            if gcs.isGoogleCloudPath(message):
+                with gcs.getBlob(message).open('a') as log:
+                    log.write(message)
+            else:
+                with open(self.logFile, 'a') as log:
+                    log.write(message)
         except:
             pass
 
@@ -235,13 +238,8 @@ class TensorHelper:
 
     def loadTokenizer(self, filename: str):
         """Load bert tokenizer from file"""
-        if filename.startswith('/'):
-            client = storage.Client()
-            # Load from Google Cloud Storage
-            logger.debug("Loaded from Google Cloud")
-            bucket = client.get_bucket(os.getenv('BUCKET_NAME'))
-            blob = bucket.blob(filename[1:])
-            self.bert_tokenizer = pickle.load(blob.open('rb'))
+        if gcs.isGoogleCloudPath(filename):
+            self.bert_tokenizer = pickle.load(gcs.getBlob(filename).open('rb'))
         else:
             # Load from local
             with open(filename, 'rb') as handle:
