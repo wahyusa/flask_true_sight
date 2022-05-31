@@ -2,6 +2,8 @@ from __future__ import annotations
 from TrueSightEngine import Logger
 import sqlalchemy
 
+from connect_unix import connect_unix_socket
+
 
 logger = Logger()
 
@@ -9,24 +11,11 @@ logger = Logger()
 class Database:
 
     def __init__(self, host, user, password, database, conn_name, runOnLocal=0) -> None:
+        print(runOnLocal)
         if runOnLocal == 0:
-            self.conn = sqlalchemy.create_engine(
-                sqlalchemy.engine.url.URL.create(
-                    drivername="mysql+pymysql",
-                    username=user,
-                    password=password,
-                    database=database,
-                    query={
-                        "unix_socket": "/cloudsql/{}".format(conn_name)
-                    }
-                ),
-                pool_size=5,
-                max_overflow=2,
-                pool_timeout=30,
-                pool_recycle=1800
-            ).connect()
+            self.current_db = connect_unix_socket()
         else:
-            self.conn = sqlalchemy.create_engine(
+            self.current_db = sqlalchemy.create_engine(
                 sqlalchemy.engine.url.URL.create(
                     drivername="mysql+pymysql",
                     host=host,
@@ -34,8 +23,8 @@ class Database:
                     password=password,
                     database=database
                 )
-            ).connect()
-
+            )
+        self.conn = self.current_db.connect()
         self.db_name = database
 
     def sql_escape_str(self, string: str) -> str:

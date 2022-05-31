@@ -1,10 +1,15 @@
+from werkzeug.routing import BaseConverter
 from helper import *
 from dotenv import load_dotenv
-from flask import Flask, request
+from flask import Flask, request, Response
 from flask_bcrypt import Bcrypt
 from database import Database
 from datetime import datetime
+from pathlib import Path
+import gcloud as gcs
 import os
+import magic
+
 
 # from google.appengine.api import app_identity
 
@@ -43,7 +48,7 @@ def home():
     return "<h1>Welcome to True Sight</h1>"
 
 
-@app.route("/api/")
+@app.route("/api")
 def api():
     """API"""
     return "Welcome to True Sight API"
@@ -54,7 +59,7 @@ def auth():
     # Check is valid request and allow without api key
     if checkValidAPIrequest(request, db, allow_no_apikey=True):
         data: dict = dict(request.get_json())
-        if (any(x in data for x in ['username', 'password'])):
+        if all(x in data for x in ['username', 'password']):
             # Query users where username matched input
             user = db.get_where(
                 'users', {'username': data['username']})
@@ -99,7 +104,7 @@ def reqistration():
     if checkValidAPIrequest(request, db, allow_no_apikey=True):
         data: dict = dict(request.get_json())
         # Validate input
-        if (any(x in data for x in ['username', 'email', 'password'])):
+        if not all(x in data for x in ['username', 'email', 'password']):
             return invalidUserInput('Registration')
 
         # Return failed if username is already use
@@ -191,7 +196,7 @@ def predict_api():
 def profile_api():
     if checkValidAPIrequest(request, db):
         data: dict = dict(request.get_json())
-        if (any(x in data for x in ['id'])):
+        if not all(x in data for x in ['id']):
             return invalidUserInput('Profile')
     else:
         return invalidRequest()
@@ -201,16 +206,58 @@ def profile_api():
 def claim_api():
     if checkValidAPIrequest(request, db):
         data: dict = dict(request.get_json())
-        if (any(x in data for x in ['id'])):
+        if not (x in data for x in ['id']):
             return invalidUserInput('Claim')
 
     else:
         return invalidRequest()
 
 
-@app.route('/uploads/<path>')
+class RegexConverter(BaseConverter):
+    def __init__(self, url_map, *items):
+        super(RegexConverter, self).__init__(url_map)
+        self.regex = items[0]
+
+
+app.url_map.converters['regex'] = RegexConverter
+
+
+@app.route('/uploads/<regex(".*"):path>')
 def get_resources(path):
-    return request.path
+    if checkValidAPIrequest(request, db, content_type=None):
+        path: str = str(path)
+        dirName = path.split('/')[0].lower()
+        if dirName == 'claim':
+            if int(os.environ.get('LOCAL', 0)) == 1:
+                full_path = os.path.join(os.getcwd(), path)
+                if Path.is_file(full_path):
+                    file_stream = open(full_path, 'rb').read()
+                    logger.debug('File Read:' + full_path)
+                    mime_type = magic.from_buffer(file_stream)
+                    logger.debug('File Type:' + mime_type)
+                    response = app.make_response(file_stream)
+                    response.headers.remove('Content-Type')
+                    response.headers.add('Content-Type', mime_type)
+                    response.headers.remove('Content-Length')
+                return response
+            else:
+                full_path = "gs://" + \
+                    os.getenv("BUCKET_NAME") + "/uploads/" + path
+                if gcs.isFileExist(full_path):
+                    file_stream = gcs.getBlob(full_path).open('rb').read()
+                    logger.debug('File Read:' + full_path)
+                    mime_type = magic.from_buffer(file_stream)
+                    logger.debug('File Type:' + mime_type)
+                    response = app.make_response(file_stream)
+                    response.headers.remove('Content-Type')
+                    response.headers.add('Content-Type', mime_type)
+                    response.headers.remove('Content-Length')
+        elif dirName == 'profil':
+            pass
+    else:
+        response = app.make_response('<h1><b>Forbidden 403<b></h1>')
+        response.status_code = 403
+        return response
 
 
 if __name__ == '__main__':
