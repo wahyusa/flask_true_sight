@@ -13,8 +13,7 @@ class Database:
     def __init__(self, host, user, password, database, conn_name, runOnLocal=0) -> None:
         print(runOnLocal)
         if runOnLocal == 0:
-            self.current_db = Database.init_connection(
-                db_name=database, db_pass=password, db_user=user, socket_path=conn_name)
+            self.current_db = connect_unix()
         else:
             self.current_db = sqlalchemy.create_engine(
                 sqlalchemy.engine.url.URL.create(
@@ -27,10 +26,6 @@ class Database:
             )
         self.conn = self.current_db.connect()
         self.db_name = database
-
-    def init_connection(db_user, db_pass, db_name, socket_path) -> sqlalchemy.engine.base.Engine:
-        return connect_unix(
-            db_name=db_name, db_pass=db_pass, db_user=db_user, socket_path='/cloudsql/{}'.format(socket_path))
 
     def sql_escape_str(self, string: str) -> str:
         return self.conn.converter.escape(string)

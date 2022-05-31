@@ -221,8 +221,11 @@ app.url_map.converters['regex'] = RegexConverter
 
 @app.route('/uploads/<regex(".*"):path>')
 def get_resources(path):
-    gcs.isFolder(path)
-    return request.path
+    # path: str = str(path)
+    # dirName = path.split('/')[0].lower()
+    # if dirName == 'claim':
+    #     getMime(path.split('/')[0])
+    return path
 
 
 if __name__ == '__main__':

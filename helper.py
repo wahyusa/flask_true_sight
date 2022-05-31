@@ -3,7 +3,7 @@ from random import Random
 from models.User import User
 from models.Claim import Claim
 from flask import jsonify
-import cloudstorage as gcs
+import gcloud as gcs
 import string
 import base64
 from TrueSightEngine import SearchEngine, TensorHelper, TimeExecution, Logger
@@ -39,9 +39,16 @@ def addAttachment(source, dest, filename: str):
         os.mkdir(os.path.join(os.getcwd(), dest))
         if not filename.lower().endswith('.jpg'):
             filename += '.jpg'
-        upload_file = gcs.open(os.path.join(os.getcwd(), dest, filename), "wb")
+        upload_file = gcs.getBlob(filename).open("wb")
         upload_file.write(bytes_data)
         upload_file.close()
+
+
+def getMime(filename):
+    mime = magic
+    bytes_data = open(filename).buffer
+    file_mime_type = mime.from_buffer(bytes_data)
+    return file_mime_type
 
 
 def predict(claim, tensorhelper: TensorHelper):
