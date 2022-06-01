@@ -64,19 +64,24 @@ Register new user
 ### Response
 
 Array of dictionary search result:
-{ "attachment",
-"author_id",
-"comment_id",
-"date_created",
-"description",
-"downvote",
-"fake",
-"id",
-"num_click":,
-"title",
-"upvote",
-"url",
-"verified_by" }
+
+```json
+{ 
+  "attachment",
+  "author_id",
+  "comment_id",
+  "date_created",
+  "description",
+  "downvote",
+  "fake",
+  "id",
+  "num_click",
+  "title",
+  "upvote",
+  "url",
+  "verified_by"
+  }
+  ```
 
 ### Description
 
@@ -95,9 +100,14 @@ Search claims with given keywords.
 ### Response
 
 Dictionary of claim prediction
-{ "claim":,
-"prediction",
-"val_prediction" }
+
+```json
+{
+  "claim",
+  "prediction",
+  "val_prediction"
+}
+```
 
 ### Description
 
