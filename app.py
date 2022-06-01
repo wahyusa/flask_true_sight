@@ -1,4 +1,3 @@
-from httplib2 import Response
 from werkzeug.routing import BaseConverter
 from helper import *
 from dotenv import load_dotenv
@@ -9,6 +8,7 @@ from datetime import datetime
 import gcloud as gcs
 import os
 import magic
+import re
 
 
 # from google.appengine.api import app_identity
@@ -94,12 +94,12 @@ def auth():
 
                         # Save new api key to database
                         db.insert('api_session', {
-                            'api_key': api_key, 'user_id': user.id, 'expired': 0})
+                            'api_key': api_key, 'user_id': user.id, 'date_created': datetime.now().timestamp(), 'expired': 0})
 
                         return api_res('success', '', 'Auth', 0, 'ApiKey', api_key)
 
             # Return failed if no matches condition
-            return api_res('failed', 'Wrong username/password', 'Auth', 0, 'ApiKey', {})
+            return api_res('failed', 'Wrong username/password', 'Auth', 0, 'ApiKey', [])
         else:
             # Return if no needed field in request
             return invalidUserInput('Auth')
@@ -113,18 +113,19 @@ def reqistration():
     if checkValidAPIrequest(request, db, allow_no_apikey=True):
         data: dict = convert_request(request)
         # Validate input
-        if not all(x in data for x in ['username', 'email', 'password']):
+        if not all(x in data for x in ['username', 'full_name', 'email', 'password']):
             return invalidUserInput('Registration')
 
         # Return failed if username is already use
         if len(db.get_where(
                 'users', {'username': data.get('username', None)})) > 0:
-            return api_res('failed', 'Username already exist', 'Reg', 0, '', {})
+            return api_res('failed', 'Username already exist', 'Reg', 0, '', [])
 
         # Insert new user into database
         db.insert('users', User().set(
             None,
             data.get('username', None),
+            data.get('full_name', None),
             data.get('email', None),
             bcrypt.generate_password_hash(data.get('password', None)),
             datetime.now().timestamp()
@@ -139,9 +140,9 @@ def reqistration():
         # Generate new api key and insert into table
         api_key = generate_key(64)
         db.insert('api_session', {
-            'api_key': api_key, 'user_id': user.id, 'expired': 0})
+            'api_key': api_key, 'user_id': user.id, 'date_created': datetime.now().timestamp(), 'expired': 0})
 
-        return api_res('success', 'User added', 'Registration', 0, '', {})
+        return api_res('success', 'User added', 'Registration', 0, '', [])
     else:
         return invalidRequest()
 
@@ -212,10 +213,15 @@ app.url_map.converters['regex'] = RegexConverter
 
 @app.route('/uploads/<regex(".*"):path>')
 def get_resources(path):
-    path: str = str(path)
+    if not request.args.get('id', None) is None:
+        logger.debug('ID: ' + request.args.get('id'))
 
     # Get parent folder
     dirName = path.split('/')[0].lower()
+
+    # MimeType Exception
+    mime_exception = ['html', 'javascript',
+                      'octet-stream']
 
     # If parent folder is claim
     if dirName == 'claim':
@@ -230,6 +236,8 @@ def get_resources(path):
                 logger.debug('File Read:' + full_path)
                 # Get mime_type of file
                 mime_type = magic.from_buffer(file_stream)
+                if any(x in mime_type.lower() for x in mime_exception):
+                    mime_type = str("text/plain")
                 logger.debug('File Type:' + mime_type)
                 # Make response
                 response = app.response_class(
@@ -253,6 +261,8 @@ def get_resources(path):
                 logger.debug('File Read:' + full_path)
                 # Get mime type
                 mime_type = magic.from_buffer(file_stream)
+                if any(x in mime_type.lower() for x in mime_exception):
+                    mime_type = str("text/plain")
                 logger.debug('File Type:' + mime_type)
                 # Make Response
                 response = app.response_class(
@@ -264,7 +274,7 @@ def get_resources(path):
             else:
                 # If file not exists return 404
                 return abort(404)
-    elif dirName == 'profile':
+    elif dirName == 'avatar':
         if checkValidAPIrequest(request, db, content_type=None):
             paths_split = path.split('/')
             # Check is have sub directory or file
@@ -274,11 +284,11 @@ def get_resources(path):
             current_user: User = getUserFromApiKey(
                 request.headers.get('x-api-key', None), db)
             logger.debug(
-                f"User {current_user.username}({str(current_user.id)}) access profile.")
+                f"User {current_user.username}({str(current_user.id)}) access avatar.")
             if int(os.environ.get('LOCAL', 0)) == 1:
                 # Build full path
                 full_path = os.path.join(
-                    os.getcwd(), 'profile', str(current_user.id), os.pathsep.join(paths_split[1:]))
+                    os.getcwd(), 'avatar', str(current_user.id), os.pathsep.join(paths_split[1:]))
 
                 # Only if file exists
                 if os.path.exists(full_path) and os.path.isfile(full_path):
@@ -287,6 +297,8 @@ def get_resources(path):
                     logger.debug('File Read:' + full_path)
                     # Get mime_type of file
                     mime_type = magic.from_buffer(file_stream)
+                    if any(x in mime_type.lower() for x in mime_exception):
+                        mime_type = str("text/plain")
                     logger.debug('File Type:' + mime_type)
                     # Make response
                     response = app.response_class(
@@ -301,7 +313,7 @@ def get_resources(path):
             else:
                 # Build full cloud storage path
                 full_path = "gs://" + \
-                    os.getenv("BUCKET_NAME") + "/uploads/profile/" + \
+                    os.getenv("BUCKET_NAME") + "/uploads/avatar/" + \
                     str(current_user.id) + '/' + \
                     os.pathsep.join(paths_split[1:])
 
@@ -312,6 +324,9 @@ def get_resources(path):
                     logger.debug('File Read:' + full_path)
                     # Get mime type
                     mime_type = magic.from_buffer(file_stream)
+                    # Avoid file execution
+                    if any(x in mime_type.lower() for x in mime_exception):
+                        mime_type = str("text/plain")
                     logger.debug('File Type:' + mime_type)
                     # Make Response
                     response = app.response_class(
@@ -354,7 +369,7 @@ def get_profile():
                 )
                 return respon
         else:
-            return invalidUserInput('Profile')
+            return invalidUserInput('Get Profile')
     else:
         return invalidRequest()
 
@@ -375,7 +390,7 @@ def get_claim():
                 respon.headers.add('Content-Type', 'application/json')
                 return respon
         else:
-            return invalidUserInput('Claim')
+            return invalidUserInput('Get Claim')
 
     else:
         return invalidRequest()
@@ -383,13 +398,31 @@ def get_claim():
 
 @app.route("/api/set/profile/", methods=['POST'])
 def set_profile():
-    if checkValidAPIrequest(request, db):
+    if checkValidAPIrequest(request, db, content_type=['multipart/form-data']):
         data: dict = convert_request(request)
-        if any(x in data for x in ['email', 'password', 'apioauth', 'verified', 'votes', 'bookmarks']):
-            pass
+        if any(x in data for x in ['email', 'full_name']) or 'avatar' in request.files:
+            current_user: User = getUserFromApiKey(
+                request.headers.get('x-api-key', None), db)
+            current_user.email = data.get('email', current_user.email)
+            current_user.full_name = data.get(
+                'full_name', current_user.full_name)
+            db.update_where('users', current_user.get(),
+                            {'id': current_user.id})
+            if 'avatar' in request.files:
+                avatar = request.files.get('avatar')
+                if avatar.content_length > 5242880:
+                    return api_res('failed', 'file to large', 'Profile', 0, 'avatar', [])
+                try:
+                    if '.' in avatar.filename:
+                        uploader(avatar.stream.read(), 'avatar/' +
+                                 current_user.id + "." + avatar.filename.split('.')[-1])
+                    else:
+                        raise Exception('Extension not allowed')
+                except Exception as ex:
+                    return api_res('failed', ex, 'Profile', 0, 'avatar', [])
+            return api_res('success', "", 'Profile', 0, '', [])
         else:
-            return invalidUserInput('Claim')
-
+            return invalidUserInput('Set Profile')
     else:
         return invalidRequest()
 
@@ -398,11 +431,80 @@ def set_profile():
 def set_claim():
     if checkValidAPIrequest(request, db):
         data: dict = convert_request(request)
-        if any(x in data for x in ['title', 'description', 'fake', 'attachment', 'url']):
-            pass
-        else:
-            return invalidUserInput('Claim')
+        if any(x in data for x in ['title', 'description', 'fake', 'url']) and 'id' in data:
+            current_user: User = getUserFromApiKey(
+                request.headers.get('x-api-key', None), db)
+            claim = Claim.parse(db.get_where(
+                'claims', {'id': data.get('id')})[0])
+            if claim.author_id == current_user.id:
+                claim.title = data.get('title', claim.title)
+                claim.description = data.get('title', claim.description)
+                claim.fake = data.get('title', claim.fake)
+                claim.url = data.get('title', claim.url)
+                attachmentUrl = list()
+                for _, file in request.files.items():
+                    if file.content_length > 5242880:
+                        return api_res('failed', 'file to large', 'Attachment', 0, file.name, [])
+                    try:
+                        uploader(file.stream.read(), 'claim/' +
+                                 claim.id + "/" + file.name)
+                        attachmentUrl.append(os.getenv('BASE_URL') + 'claim/' +
+                                             claim.id + "/" + file.name)
+                    except Exception as ex:
+                        return api_res('failed', ex, 'Attachment', 0, file.name, [])
 
+                if len(attachmentUrl) > 0:
+                    claim.attachment = ','.join(attachmentUrl)
+
+                db.update_where('claims', claim.get(), {'id': claim.id})
+                return api_res('success', "", 'Claim', 0, '', [])
+            else:
+                return abort(403)
+        else:
+            return invalidUserInput('Set Claim')
+
+    else:
+        return invalidRequest()
+
+
+@app.route("/api/create/claim/", methods=['POST'])
+def create_claim():
+    if checkValidAPIrequest(request, db):
+        data: dict = convert_request(request)
+        if all(x in data for x in ['title', 'description', 'fake']):
+            current_user: User = getUserFromApiKey(
+                request.headers.get('x-api-key', None), db)
+            claim = Claim().set(
+                id=None,
+                title=data.get('title'),
+                description=data.get('description'),
+                author_id=current_user.id,
+                attachment="",
+                comment_id=0,
+                date_created=datetime.now().timestamp(),
+                fake=data.get('fake'),
+                url=data.get('url', '')
+            )
+
+            attachmentUrl = list()
+            for _, file in request.files.items():
+                if file.content_length > 5242880:
+                    return api_res('failed', 'file to large', 'Attachment', 0, file.name, [])
+                try:
+                    uploader(file.stream.read(), 'claim/' +
+                             claim.id + "/" + file.name)
+                    attachmentUrl.append(os.getenv('BASE_URL') + 'claim/' +
+                                         claim.id + "/" + file.name)
+                except Exception as ex:
+                    return api_res('failed', ex, 'Attachment', 0, file.name, [])
+
+            if len(attachmentUrl) > 0:
+                claim.attachment = ','.join(attachmentUrl)
+
+            db.insert('claims', claim.get())
+            return api_res('success', "", 'Claim', 0, '', [])
+        else:
+            return invalidUserInput('Create Claim')
     else:
         return invalidRequest()
 

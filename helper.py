@@ -65,20 +65,36 @@ def userToProfileJson(user: User, hidePresonalInformation: bool = True):
     }
 
 
-def uploader(bytes, destination):
-    if int(os.environ.get("LOCAL", 0)) == 1:
-        full_path = os.path.join(os.getcwd(), destination)
-        if os.path.exists(full_path):
-            raise "File already exists"
+def uploader(bytes, destination: str) -> bool:
+    destination = destination.strip()
+    if any(destination.lower().endswith(x) for x in os.environ.get('UPLOAD_ALLOWED_EXSTENSION', '.jpg;.jpeg;.png;.bmp').split(';')):
+        if int(os.environ.get("LOCAL", 0)) == 1:
+            full_path = os.path.join(os.getcwd(), destination)
+            if os.path.exists(full_path):
+                raise Exception("File already exists")
+            else:
+                with open(full_path, 'wb') as uploadfile:
+                    uploadfile.write(bytes)
+            logger.debug('File upload to "' + full_path + '"')
+        else:
+            full_path = "gs://{}/uploads/{}".format(
+                os.getenv('BUCKET_NAME'), destination)
+            if gcs.isFileExist(full_path) or gcs.isFolderExist(full_path):
+                raise Exception("File already exists")
+            else:
+                with gcs.getBlob(full_path).open('wb') as uploadfile:
+                    uploadfile.write(bytes)
+            logger.debug('File upload to "' + full_path + '"')
     else:
-        pass
+        raise Exception('Extension not Allowed')
 
 
 def predict(claim: str, tensorhelper: TensorHelper):
     """Predict from string"""
     try:
         # Remove any stopwords
-        claim = ' '.join(SearchEngine.RemoveStopWords(claim.split()))
+        claim = ' '.join(SearchEngine.RemoveStopWords(
+            claim.replace('\n', ' ').split()))
 
         logger.debug("Started Prediction")
         if not tensorhelper.is_model_loaded:

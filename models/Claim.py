@@ -23,8 +23,13 @@ class Claim(Model):
         self.comment_id = comment_id
         return self
 
+    def get(self):
+        data = self.__dict__
+        data['fake'] = 1 if data['fake'] else 0
+        return data
+
     def parse(data) -> Claim:
-        claim = Claim().set(data[0], data[1], data[2], data[3], data[4], data[5],
+        claim = Claim().set(data[0], data[1], data[2], int(data[3]) == 1, data[4], data[5],
                             data[6], data[7], data[8], data[9], data[10], data[11], data[12])
         return claim
 
