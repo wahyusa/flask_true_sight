@@ -113,7 +113,7 @@ def reqistration():
     if checkValidAPIrequest(request, db, allow_no_apikey=True):
         data: dict = convert_request(request)
         # Validate input
-        if not all(x in data for x in ['username', 'full_name', 'email', 'password']):
+        if not all(x in data for x in ['username', 'email', 'password']):
             return invalidUserInput('Registration')
 
         # Return failed if username is already use
@@ -125,7 +125,7 @@ def reqistration():
         db.insert('users', User().set(
             None,
             data.get('username', None),
-            data.get('full_name', None),
+            data.get('full_name', data.get('username')),
             data.get('email', None),
             bcrypt.generate_password_hash(data.get('password', None)),
             datetime.now().timestamp()
@@ -362,8 +362,7 @@ def get_profile():
                     return api_res('success', '', 'Get Profile', 0, 'profile', userToProfileJson(profil))
             else:
                 respon = app.response_class(
-                    response=json.dumps(api_res('failed', 'User doesn\'t exist',
-                                                'Get Profile', 0, 'profile', None, True)),
+                    response=json.dumps('User doesn\'t exist'),
                     status=406,
                     mimetype='application/json'
                 )
@@ -379,7 +378,7 @@ def get_claim():
     if checkValidAPIrequest(request, db):
         data: dict = convert_request(request)
         if all(x in data for x in ['id']):
-            claims = db.get_where('users', {'id': data['id']})
+            claims = db.get_where('claims', {'id': data['id']})
             if (len(claims) > 0):
                 claim: Claim = Claim.parse(claims[0])
                 return api_res('success', '', 'Claim', 0, 'claim', claim.get())
@@ -411,7 +410,7 @@ def set_profile():
             if 'avatar' in request.files:
                 avatar = request.files.get('avatar')
                 if avatar.content_length > 5242880:
-                    return api_res('failed', 'file to large', 'Profile', 0, 'avatar', [])
+                    return api_res('failed', 'File size is too big', 'Profile', 0, 'avatar', [])
                 try:
                     if '.' in avatar.filename:
                         uploader(avatar.stream.read(), 'avatar/' +
@@ -429,7 +428,7 @@ def set_profile():
 
 @app.route("/api/set/claim/", methods=['POST'])
 def set_claim():
-    if checkValidAPIrequest(request, db):
+    if checkValidAPIrequest(request, db, content_type=['multipart/form-data']):
         data: dict = convert_request(request)
         if any(x in data for x in ['title', 'description', 'fake', 'url']) and 'id' in data:
             current_user: User = getUserFromApiKey(
@@ -444,7 +443,7 @@ def set_claim():
                 attachmentUrl = list()
                 for _, file in request.files.items():
                     if file.content_length > 5242880:
-                        return api_res('failed', 'file to large', 'Attachment', 0, file.name, [])
+                        return api_res('failed', 'File size is too big', 'Attachment', 0, file.name, [])
                     try:
                         uploader(file.stream.read(), 'claim/' +
                                  claim.id + "/" + file.name)
@@ -467,9 +466,14 @@ def set_claim():
         return invalidRequest()
 
 
+@app.route("/test/")
+def test():
+    pass
+
+
 @app.route("/api/create/claim/", methods=['POST'])
 def create_claim():
-    if checkValidAPIrequest(request, db):
+    if checkValidAPIrequest(request, db, content_type=['multipart/form-data']):
         data: dict = convert_request(request)
         if all(x in data for x in ['title', 'description', 'fake']):
             current_user: User = getUserFromApiKey(
