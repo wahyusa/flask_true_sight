@@ -43,10 +43,12 @@ def voteToJson(vote: str):
 
 def userToProfileJson(user: User, hidePresonalInformation: bool = True):
     if hidePresonalInformation:
+        # Do not send personal information
         votes = None
         bookmarks = None
         date_created = user.date_created
     else:
+        # Send personal information
         bookmarks = None if user.bookmarks is None else [int(x) for x in user.bookmarks.split(
             ',')]
         votes = None if user.votes is None else [voteToJson(x) for x in user.votes.split(
@@ -63,34 +65,37 @@ def userToProfileJson(user: User, hidePresonalInformation: bool = True):
     }
 
 
-def addAttachment(source, dest, filename: str):
-    bytes_data = base64.b64decode(source)
-    file_mime_type = magic.from_buffer(bytes_data)
-    if file_mime_type == "image/jpeg":
-        os.mkdir(os.path.join(os.getcwd(), dest))
-        if not filename.lower().endswith('.jpg'):
-            filename += '.jpg'
-        upload_file = gcs.getBlob(filename).open("wb")
-        upload_file.write(bytes_data)
-        upload_file.close()
+def uploader(bytes, destination):
+    if int(os.environ.get("LOCAL", 0)) == 1:
+        full_path = os.path.join(os.getcwd(), destination)
+        if os.path.exists(full_path):
+            raise "File already exists"
+    else:
+        pass
 
 
-def predict(claim, tensorhelper: TensorHelper):
+def predict(claim: str, tensorhelper: TensorHelper):
     """Predict from string"""
-
     try:
+        # Remove any stopwords
+        claim = ' '.join(SearchEngine.RemoveStopWords(claim.split()))
+
         logger.debug("Started Prediction")
         if not tensorhelper.is_model_loaded:
             logger.debug("Loaded Tensor Model")
             if int(os.environ.get("LOCAL", 0)) == 1:
+                # Loaded Tensor Model
                 tensorhelper.openModel(
                     '/home/rvinz/Documents/Github/tensor_model/indobert-base-p1-87')
                 logger.debug("Loaded Tokenizer")
+                # Loaded Tokenizer
                 tensorhelper.loadTokenizer(
                     '/home/rvinz/Documents/Github/tensor_model/indobert-base-p1-tokenizer-87.pickle')
             else:
+                # Loaded Tensor Model
                 tensorhelper.openModel(os.environ.get('MODEL_PATH'))
                 logger.debug("Loaded Tokenizer")
+                # Loaded Tokenizer
                 tensorhelper.loadTokenizer(os.environ.get('TOKENIZER_PATH'))
         predicted = tensorhelper.predict_claim(claim, 60)
         predicted['val_prediction'] = str(predicted['val_prediction'])

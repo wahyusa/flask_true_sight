@@ -30,7 +30,9 @@ app = Flask(__name__)
 bcrypt = Bcrypt(app)
 logger = Logger()
 # New tensor helper with Threshold 0.7
-tensorHelper = TensorHelper(0.7)
+if not 'tensorHelper' in locals():
+    global tensorHelper
+    tensorHelper = TensorHelper(0.7)
 
 # Use 127.0.0.1 if running in cloud instead of using sql public api
 db_host = "127.0.0.1" if int(os.environ.get(
@@ -392,11 +394,11 @@ def set_profile():
         return invalidRequest()
 
 
-@app.route("/api/set/profile/", methods=['POST'])
+@app.route("/api/set/claim/", methods=['POST'])
 def set_claim():
     if checkValidAPIrequest(request, db):
         data: dict = convert_request(request)
-        if any(x in data for x in ['email', 'password', 'apioauth', 'verified', 'votes', 'bookmarks']):
+        if any(x in data for x in ['title', 'description', 'fake', 'attachment', 'url']):
             pass
         else:
             return invalidUserInput('Claim')

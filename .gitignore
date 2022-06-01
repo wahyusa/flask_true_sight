@@ -4,7 +4,10 @@ instance/*
 .webassets-cache
 .env
 .flaskenv
+
+# Web dir
 claim/
+profile/
 
 ### Flask.Python Stack ###
 # Byte-compiled / optimized / DLL files
