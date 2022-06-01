@@ -5,6 +5,10 @@ instance/*
 .env
 .flaskenv
 
+# Web dir
+claim/
+profile/
+
 ### Flask.Python Stack ###
 # Byte-compiled / optimized / DLL files
 __pycache__/

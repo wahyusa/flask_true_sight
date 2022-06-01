@@ -52,7 +52,7 @@ class Database:
             c = self.conn.execute(query, list(condition.values()))
             if c.rowcount > 0:
                 print("Rows produced by statement '{}':".format(
-                    str(c.context.__dict__)))
+                    query))
                 return c.fetchall()
         except Exception as ex:
             logger.error("MYSQL SELECT", ex)

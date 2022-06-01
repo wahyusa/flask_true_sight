@@ -1,5 +1,4 @@
 from google.cloud import storage
-from google.cloud.client import Client
 import re
 
 
