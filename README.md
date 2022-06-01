@@ -1,5 +1,4 @@
-    Table Of Contents
-
+Table Of Contents
 =================
 
 - [API](#api)

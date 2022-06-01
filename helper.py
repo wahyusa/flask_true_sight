@@ -10,16 +10,19 @@ import magic
 from TrueSightEngine import SearchEngine, TensorHelper, TimeExecution, Logger
 
 
-def api_res(status: str, message: str, source: str, total: int, dataname: str, data):
+def api_res(status: str, message: str, source: str, total: int, dataname: str, data, raw=False):
     """Output API"""
-    return jsonify({
+    data = {
         'data': data,
         'dataname': dataname,
         'message': message,
         'source': source,
         'status': status,
         'total': total
-    })
+    }
+    if raw:
+        return data
+    return jsonify(data)
 
 
 def invalidRequest():
@@ -29,6 +32,35 @@ def invalidRequest():
 random = Random()
 # Log support
 logger = Logger()
+
+
+def voteToJson(vote: str):
+    return{
+        'id': int(vote.split(':')[0]),
+        'value': int(vote.split(':')[1])
+    }
+
+
+def userToProfileJson(user: User, hidePresonalInformation: bool = True):
+    if hidePresonalInformation:
+        votes = None
+        bookmarks = None
+        date_created = user.date_created
+    else:
+        bookmarks = None if user.bookmarks is None else [int(x) for x in user.bookmarks.split(
+            ',')]
+        votes = None if user.votes is None else [voteToJson(x) for x in user.votes.split(
+            ',')]
+        date_created = user.date_created
+    return {
+        "id": user.id,
+        "username": user.username,
+        "email": user.email,
+        "bookmarks": bookmarks,
+        "date_created": date_created,
+        "verified": user.verified,
+        "votes": votes
+    }
 
 
 def addAttachment(source, dest, filename: str):
@@ -78,20 +110,16 @@ def isValidApiKey(api_key: str, db) -> bool:
     return False
 
 
-def checkValidAPIrequest(request, db, allow_no_apikey=False, content_type='application/json') -> bool:
+def checkValidAPIrequest(request, db, allow_no_apikey=False, content_type=['application/json', 'multipart/form-data', 'application/x-www-form-urlencoded']) -> bool:
     # check if content type is equal
-    if request.headers.get('Content-Type') == content_type or content_type is None:
+    if any(request.headers.get('Content-Type', 'NULL').startswith(x) for x in content_type) or content_type is None:
         if allow_no_apikey:
             return True
         else:
             # check if api key is valid
             return isValidApiKey(request.headers.get('x-api-key', None), db)
     else:
-        if allow_no_apikey:
-            return True
-        else:
-            # check if api key is valid
-            return isValidApiKey(request.headers.get('x-api-key', None), db)
+        return False
 
 
 def invalidUserInput(source: str):
