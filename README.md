@@ -1,5 +1,4 @@
-    Table Of Contents
-
+Table Of Contents
 =================
 
 - [API](#api)
@@ -25,7 +24,7 @@
 
 ### Response
 
-**_Api Key_**
+**_Api Key_** as String
 
 ### Description
 
@@ -64,7 +63,7 @@ Register new user
 
 ### Response
 
-Dictionary of search result:
+Array of dictionary search result:
 { "attachment",
 "author_id",
 "comment_id",
