@@ -64,6 +64,7 @@ def userToProfileJson(user: User, hidePresonalInformation: bool = True):
         "email": email,
         "bookmarks": bookmarks,
         "date_created": date_created,
+        "avatar": user.avatar,
         "verified": user.verified,
         "votes": votes
     }

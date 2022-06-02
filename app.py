@@ -281,68 +281,64 @@ def get_resources(path):
                 # If file not exists return 404
                 return abort(404)
     elif dirName == 'avatar':
-        if checkValidAPIrequest(request, db, content_type=None):
-            # Get Current user depends on api key
-            current_user: User = getUserFromApiKey(
-                request.headers.get('x-api-key', None), db)
-            logger.debug(
-                f"User {current_user.username}({str(current_user.id)}) access avatar.")
-            if int(os.environ.get('LOCAL', 0)) == 1:
-                # Build full path
-                full_path = os.path.join(
-                    os.getcwd(), 'avatar', str(current_user.id), os.pathsep.join(paths_split[1:]))
+        # Get Current user depends on api key
+        current_user: User = getUserFromApiKey(
+            request.headers.get('x-api-key', None), db)
+        logger.debug(
+            f"User {current_user.username}({str(current_user.id)}) access avatar.")
+        if int(os.environ.get('LOCAL', 0)) == 1:
+            # Build full path
+            full_path = os.path.join(
+                os.getcwd(), 'avatar', str(current_user.id), os.pathsep.join(paths_split[1:]))
 
-                # Only if file exists
-                if os.path.exists(full_path) and os.path.isfile(full_path):
-                    # Open file and read all bytes
-                    file_stream = open(full_path, 'rb').read()
-                    logger.debug('File Read:' + full_path)
-                    # Get mime_type of file
-                    mime_type = magic.from_buffer(file_stream)
-                    if any(x in mime_type.lower() for x in mime_exception):
-                        mime_type = str("text/plain")
-                    logger.debug('File Type:' + mime_type)
-                    # Make response
-                    response = app.response_class(
-                        response=file_stream,
-                        mimetype=mime_type
-                    )
-                    # Return response
-                    return response
-                else:
-                    # If file not exists return 404
-                    return abort(404)
+            # Only if file exists
+            if os.path.exists(full_path) and os.path.isfile(full_path):
+                # Open file and read all bytes
+                file_stream = open(full_path, 'rb').read()
+                logger.debug('File Read:' + full_path)
+                # Get mime_type of file
+                mime_type = magic.from_buffer(file_stream)
+                if any(x in mime_type.lower() for x in mime_exception):
+                    mime_type = str("text/plain")
+                logger.debug('File Type:' + mime_type)
+                # Make response
+                response = app.response_class(
+                    response=file_stream,
+                    mimetype=mime_type
+                )
+                # Return response
+                return response
             else:
-                # Build full cloud storage path
-                full_path = "gs://" + \
-                    os.getenv("BUCKET_NAME") + "/uploads/avatar/" + '/'.join(paths_split[1:])
-                    
-                logger.debug(full_path)
-
-                # Check File if exists
-                if gcs.isFileExist(full_path):
-                    # Open file and read all bytes
-                    file_stream = gcs.getBlob(full_path).open('rb').read()
-                    logger.debug('File Read:' + full_path)
-                    # Get mime type
-                    mime_type = magic.from_buffer(file_stream)
-                    # Avoid file execution
-                    if any(x in mime_type.lower() for x in mime_exception):
-                        mime_type = str("text/plain")
-                    logger.debug('File Type:' + mime_type)
-                    # Make Response
-                    response = app.response_class(
-                        response=file_stream,
-                        mimetype=mime_type
-                    )
-                    # Return response
-                    return response
-                else:
-                    # If file not exists return 404
-                    return abort(404)
+                # If file not exists return 404
+                return abort(404)
         else:
-            # Return Forbidden
-            return abort(403)
+            # Build full cloud storage path
+            full_path = "gs://" + \
+                os.getenv("BUCKET_NAME") + "/uploads/avatar/" + '/'.join(paths_split[1:])
+                
+            logger.debug(full_path)
+
+            # Check File if exists
+            if gcs.isFileExist(full_path):
+                # Open file and read all bytes
+                file_stream = gcs.getBlob(full_path).open('rb').read()
+                logger.debug('File Read:' + full_path)
+                # Get mime type
+                mime_type = magic.from_buffer(file_stream)
+                # Avoid file execution
+                if any(x in mime_type.lower() for x in mime_exception):
+                    mime_type = str("text/plain")
+                logger.debug('File Type:' + mime_type)
+                # Make Response
+                response = app.response_class(
+                    response=file_stream,
+                    mimetype=mime_type
+                )
+                # Return response
+                return response
+            else:
+                # If file not exists return 404
+                return abort(404)
     else:
         # If file not exists return 404
         return abort(404)
@@ -403,8 +399,6 @@ def set_profile():
                     current_user.bookmarks = ','.join(str(x) for x in data.get('bookmarks'))
                 elif isinstance(data.get('bookmarks', str)):
                     current_user.bookmarks = data.get('bookmarks')
-            db.update_where('users', current_user.get(),
-                            {'id': current_user.id})
             if 'avatar' in request.files:
                 avatar = request.files.get('avatar')
                 if avatar.content_length > 5242880:
@@ -413,10 +407,14 @@ def set_profile():
                     if '.' in avatar.filename:
                         uploader(avatar.stream.read(), 'avatar/' +
                                  str(current_user.id) + "." + avatar.filename.split('.')[-1])
+                        current_user.avatar = os.getenv['BASE_URL'] + 'uploads/avatar/' + \
+                                 str(current_user.id) + "." + avatar.filename.split('.')[-1]
                     else:
                         raise Exception('Extension not allowed')
                 except Exception as ex:
                     return api_res('failed', str(ex), 'Profile', 0, 'avatar', [])
+            db.update_where('users', current_user.get(),
+                {'id': current_user.id})
             return api_res('success', "", 'Profile', 0, '', [])
         else:
             return invalidUserInput('Set Profile')
@@ -555,6 +553,27 @@ def bookmark_remove():
     else:
         return invalidRequest()
     
+@app.route("/api/bookmarks/list/", methods=['POST'])
+def bookmark_list():
+    if checkValidAPIrequest(request, db):
+        data: dict = convert_request(request)
+        current_user: User = getUserFromApiKey(
+            request.headers.get('x-api-key', None), db)
+        claims = db.get('claims')
+        raw_bookmarks = current_user.bookmarks.split(',')
+        bookmarks = [int(x) for x in raw_bookmarks]
+        del raw_bookmarks
+        claims_bookmarked = list()
+        for claim in claims:
+            claim = Claim.parse(claim)
+            if claim.id in bookmarks:
+                claims_bookmarked.append(claim.get())
+        start = data.get('start', 0)
+        limit = data.get('limit', 9999)
+        return api_res('success', "", 'Bookmarks', len(claims_bookmarked), 'bookmarks', claims_bookmarked[start:start+limit])
+    else:
+        return invalidRequest()
+    
 @app.route("/api/votes/up/", methods=['POST'])
 def votes_up():
     if checkValidAPIrequest(request, db):
@@ -650,7 +669,6 @@ def my_claim():
 @app.route("/api/session/", methods=['GET', 'POST'])
 def api_session():
     if checkValidAPIrequest(request, db, content_type=None):
-        data: dict = convert_request(request)
         current_user: User = getUserFromApiKey(
             request.headers.get('x-api-key', None), db)
         query_result = db.get_where('api_session', {'user_id': current_user.id})[0]
@@ -662,11 +680,11 @@ def api_session():
 @app.route("/api/auth/logout/", methods=['GET', 'POST'])
 def end_session():
     if checkValidAPIrequest(request, db, content_type=None):
-        data: dict = convert_request(request)
         current_user: User = getUserFromApiKey(
             request.headers.get('x-api-key', None), db)
         query_result = db.get_where('api_session', {'user_id': current_user.id})[0]
         api_session = ApiSession.parse(query_result)
+        db.delete('api_session', {'id': api_session.id})
         return ""
     else:
         return invalidRequest()
