@@ -95,7 +95,7 @@ def auth():
                         # Save new api key to database
                         db.insert('api_session', ApiSession().set(None, api_key, user.id, datetime.now().timestamp(), 0).get())
 
-                        return api_res('success', '', 'Auth', 0, 'ApiKey', api_key)
+                        return api_res('success', '', 'Auth', 0, 'ApiKey', {'api_key':api_key, 'user_id': user.id})
 
             # Return failed if no matches condition
             return api_res('failed', 'Wrong username/password', 'Auth', 0, 'ApiKey', [])
