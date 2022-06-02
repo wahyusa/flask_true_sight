@@ -86,7 +86,7 @@ def auth():
 
                     if len(query_api) > 0:
                         # If exist then return api key
-                        return api_res('success', '', 'Auth', 0, 'ApiKey',{'api_key':query_api[0][1], 'user_id': user.id} )
+                        return api_res('success', '', 'Auth', 0, 'ApiKey',{'api_key':query_api[0][1], 'user': user.get()} )
                     else:
                         # Generate new api key
                         api_key = generate_key(64)
