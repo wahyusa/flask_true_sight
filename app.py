@@ -574,7 +574,7 @@ def votes_up():
                 votes.append({'id': id, 'value': 1})
             
             # Change total vote for claim
-            selected_claim = Claim.parse(db.get_where('claims', {'id': data.get('id')}))
+            selected_claim = Claim.parse(db.get_where('claims', {'id': data.get('id')})[0])
             selected_claim.upvote += 1
             current_user.votes = ','.join([str(x.get('id')) + ":" + str(x.get('value')) for x in votes]) if len(votes) > 0 else None
             # Update database
@@ -608,7 +608,7 @@ def votes_down():
                 votes.append({'id': id, 'value': -1})
             
             # Change total vote for claim
-            selected_claim = Claim.parse(db.get_where('claims', {'id': data.get('id')}))
+            selected_claim = Claim.parse(db.get_where('claims', {'id': data.get('id')})[0])
             selected_claim.downvote += 1
             current_user.votes = ','.join([str(x.get('id')) + ":" + str(x.get('value')) for x in votes]) if len(votes) > 0 else None
             # Update database
