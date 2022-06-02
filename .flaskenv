@@ -1,7 +1,7 @@
 #.flaskenv
 FLASK_APP=app.py
 FLASK_RUN_PORT=8080
-LOCAL=1
+LOCAL=0
 INSTANCE_HOST=34.121.78.115
 INSTANCE_CONNECTION_NAME=advance-branch-351506:us-central1:truesight-db-1
 INSTANCE_UNIX_SOCKET=/cloudsql/advance-branch-351506:us-central1:truesight-db-1
