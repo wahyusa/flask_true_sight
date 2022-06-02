@@ -221,9 +221,13 @@ def get_resources(path):
 
     # If parent folder is claim
     if dirName == 'claim':
+        paths_split = path.split('/')
+            # Check is have sub directory or file
+        if not len(paths_split) > 1:
+            return abort(404)
         if int(os.environ.get('LOCAL', 0)) == 1:
             # Build full path
-            full_path = os.path.join(os.getcwd(), path)
+            full_path = os.path.join(os.getcwd(), os.pathsep.join(paths_split))
 
             # Only if file exists
             if os.path.exists(full_path) and os.path.isfile(full_path):
@@ -248,7 +252,7 @@ def get_resources(path):
         else:
             # Build full cloud storage path
             full_path = "gs://" + \
-                os.getenv("BUCKET_NAME") + "/uploads/" + path
+                os.getenv("BUCKET_NAME") + "/uploads/" + '/'.join(paths_split)
 
             # Check File if exists
             if gcs.isFileExist(full_path):
@@ -310,8 +314,7 @@ def get_resources(path):
                 # Build full cloud storage path
                 full_path = "gs://" + \
                     os.getenv("BUCKET_NAME") + "/uploads/avatar/" + \
-                    str(current_user.id) + '/' + \
-                    os.pathsep.join(paths_split[1:])
+                    '/'.join(paths_split[1:])
 
                 # Check File if exists
                 if gcs.isFileExist(full_path):
