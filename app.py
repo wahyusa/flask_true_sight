@@ -213,18 +213,22 @@ def get_resources(path):
         logger.debug('ID: ' + request.args.get('id'))
 
     # Get parent folder
-    dirName = path.split('/')[0].lower()
+    paths_split = path.split('/')
+    dirName = paths_split[0].lower()
+    
+    logger.debug('Access uploads folder')
+    
+    # Check is have sub directory or file
+    if not len(paths_split) > 1:
+        logger.debug('Aborted')
+        return abort(404)
 
     # MimeType Exception
     mime_exception = ['html', 'javascript',
                       'octet-stream']
-
     # If parent folder is claim
     if dirName == 'claim':
-        paths_split = path.split('/')
-            # Check is have sub directory or file
-        if not len(paths_split) > 1:
-            return abort(404)
+            
         if int(os.environ.get('LOCAL', 0)) == 1:
             # Build full path
             full_path = os.path.join(os.getcwd(), os.pathsep.join(paths_split))
@@ -254,6 +258,8 @@ def get_resources(path):
             full_path = "gs://" + \
                 os.getenv("BUCKET_NAME") + "/uploads/" + '/'.join(paths_split)
 
+            logger.debug(full_path)
+
             # Check File if exists
             if gcs.isFileExist(full_path):
                 # Open file and read all bytes
@@ -276,10 +282,6 @@ def get_resources(path):
                 return abort(404)
     elif dirName == 'avatar':
         if checkValidAPIrequest(request, db, content_type=None):
-            paths_split = path.split('/')
-            # Check is have sub directory or file
-            if not len(paths_split) > 1:
-                return abort(404)
             # Get Current user depends on api key
             current_user: User = getUserFromApiKey(
                 request.headers.get('x-api-key', None), db)
@@ -313,8 +315,9 @@ def get_resources(path):
             else:
                 # Build full cloud storage path
                 full_path = "gs://" + \
-                    os.getenv("BUCKET_NAME") + "/uploads/avatar/" + \
-                    '/'.join(paths_split[1:])
+                    os.getenv("BUCKET_NAME") + "/uploads/avatar/" + '/'.join(paths_split[1:])
+                    
+                logger.debug(full_path)
 
                 # Check File if exists
                 if gcs.isFileExist(full_path):
@@ -561,6 +564,7 @@ def votes_up():
                 request.headers.get('x-api-key', None), db)
             claims = db.get_where('claims', {'id': data.get('id')})
             if len(claims) >0:
+                selected_claim = Claim.parse(claims[0])
                 votes = list() if current_user.votes is None else list(voteToJson(x) for x in current_user.votes.split(
                 ','))
                 # Check if present, if not then add
@@ -576,7 +580,6 @@ def votes_up():
                     votes.append({'id': id, 'value': 1})
                 
                 # Change total vote for claim
-                selected_claim = Claim.parse(db.get_where('claims', {'id': data.get('id')}))
                 selected_claim.upvote += 1
                 current_user.votes = ','.join([str(x.get('id')) + ":" + str(x.get('value')) for x in votes]) if len(votes) > 0 else None
                 # Update database
