@@ -164,8 +164,7 @@ def search_api():
         # If has keywords, get claims from database and build array dictionary
         claims = {}
         for _ in db.get('claims'):
-            claim = Claim.parse(_).get()
-            claims = SearchEngine.addDataToDictionary(claim, claims)
+            claims = SearchEngine.addDataToDictionary(Claim.parse(_).get(), claims)
 
         # Cut data from given index and limit
         begin = data.get('begin', 0)
@@ -430,9 +429,9 @@ def set_claim():
                 'claims', {'id': data.get('id')})[0])
             if claim.author_id == current_user.id:
                 claim.title = data.get('title', claim.title)
-                claim.description = data.get('title', claim.description)
-                claim.fake = data.get('title', claim.fake)
-                claim.url = data.get('title', claim.url)
+                claim.description = data.get('description', claim.description)
+                claim.fake = int(data.get('fake', 1 if claim.fake else 0)) == 1
+                claim.url = data.get('url', claim.url)
                 attachmentUrl = list()
                 for _, file in request.files.items():
                     if file.content_length > 5242880:
@@ -471,6 +470,7 @@ def create_claim():
                 title=data.get('title'),
                 description=data.get('description'),
                 author_id=current_user.id,
+                author_username=current_user.username,
                 attachment="",
                 comment_id=0,
                 date_created=datetime.now().timestamp(),
@@ -509,11 +509,14 @@ def bookmark_add():
                 request.headers.get('x-api-key', None), db)
             bookmarks = list() if current_user.bookmarks is None else list(int(x) for x in current_user.bookmarks.split(
             ','))
+            # Check if present, if not then add
             if int(data.get('id')) in bookmarks:
                 return api_res('success', "Already bookmarks", 'Bookmark', 0, '', [])
             else:
                 bookmarks.append(int(data.get('id')))
+            # Change total vote for claim
             current_user.bookmarks = ','.join([str(x) for x in bookmarks]) if len(bookmarks) > 0 else None
+            # Update database
             db.update_where('users', current_user.get(), {'id': current_user.id})
             return api_res('success', "Bookmark added", 'Bookmark', 0, '', [])
         else:
@@ -528,13 +531,17 @@ def bookmark_remove():
         if all(x in data for x in ['id']):
             current_user: User = getUserFromApiKey(
                 request.headers.get('x-api-key', None), db)
+            # Check if present, if not then add
             bookmarks = list() if current_user.bookmarks is None else list(int(x) for x in current_user.bookmarks.split(
             ','))
             if int(data.get('id')) in bookmarks:
                 bookmarks.remove(int(data.get('id')))
             else:
                 return api_res('success', "Claim is not bookmarked", 'Bookmark', 0, '', [])
+            
+            # Change total vote for claim
             current_user.bookmarks = ','.join([str(x) for x in bookmarks]) if len(bookmarks) > 0 else None
+            # Update database
             db.update_where('users', current_user.get(), {'id': current_user.id})
             return api_res('success', "Bookmark removed", 'Bookmark', 0, '', [])
         else:
@@ -551,6 +558,7 @@ def votes_up():
                 request.headers.get('x-api-key', None), db)
             votes = list() if current_user.votes is None else list(voteToJson(x) for x in current_user.votes.split(
             ','))
+            # Check if present, if not then add
             for i, vote in enumerate(votes):
                 if vote.get('id') == int(data.get('id')):
                     if vote['value'] == 1:
@@ -561,8 +569,14 @@ def votes_up():
             else:
                 id = int(data.get('id'))
                 votes.append({'id': id, 'value': 1})
+            
+            # Change total vote for claim
+            selected_claim = Claim.parse(db.get_where('claims', {'id': data.get('id')}))
+            selected_claim.upvote += 1
             current_user.votes = ','.join([str(x.get('id')) + ":" + str(x.get('value')) for x in votes]) if len(votes) > 0 else None
+            # Update database
             db.update_where('users', current_user.get(), {'id': current_user.id})
+            db.update_where('claims', selected_claim.get(), {'id': selected_claim.id})
             return api_res('success', "Votes added", 'Votes', 0, '', [])
         else:
             return invalidUserInput('Add votes')
@@ -578,6 +592,7 @@ def votes_down():
                 request.headers.get('x-api-key', None), db)
             votes = list() if current_user.votes is None else list(voteToJson(x) for x in current_user.votes.split(
             ','))
+            # Check if present, if not then add
             for i, vote in enumerate(votes):
                 if vote.get('id') == int(data.get('id')):
                     if vote['value'] == 1:
@@ -588,8 +603,14 @@ def votes_down():
             else:
                 id = int(data.get('id'))
                 votes.append({'id': id, 'value': -1})
+            
+            # Change total vote for claim
+            selected_claim = Claim.parse(db.get_where('claims', {'id': data.get('id')}))
+            selected_claim.downvote += 1
             current_user.votes = ','.join([str(x.get('id')) + ":" + str(x.get('value')) for x in votes]) if len(votes) > 0 else None
+            # Update database
             db.update_where('users', current_user.get(), {'id': current_user.id})
+            db.update_where('claims', selected_claim.get(), {'id': selected_claim.id})
             return api_res('success', "Votes reduced", 'Votes', 0, '', [])
         else:
             return invalidUserInput('Down votes')
