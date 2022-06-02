@@ -68,10 +68,10 @@ def auth():
     # Check is valid request and allow without api key
     if checkValidAPIrequest(request, db, allow_no_apikey=True):
         data: dict = convert_request(request)
-        if all(x in data for x in ['username', 'password']):
+        if all(x in data for x in ['email', 'password']):
             # Query users where username matched input
             user = db.get_where(
-                'users', {'username': data['username']})
+                'users', {'email': data['email']})
 
             if len(user) > 0:
                 # Cast to User()
@@ -359,12 +359,7 @@ def get_profile():
                 else:
                     return api_res('success', '', 'Get Profile', 0, 'profile', userToProfileJson(profil))
             else:
-                respon = app.response_class(
-                    response=json.dumps('User doesn\'t exist'),
-                    status=406,
-                    mimetype='application/json'
-                )
-                return respon
+                return abort(406)
         else:
             return invalidUserInput('Get Profile')
     else:
@@ -381,11 +376,7 @@ def get_claim():
                 claim: Claim = Claim.parse(claims[0])
                 return api_res('success', '', 'Claim', 0, 'claim', claim.get())
             else:
-                respon = app.make_response("ss")
-                respon.status_code = 406
-                respon.headers.remove('Content-Type')
-                respon.headers.add('Content-Type', 'application/json')
-                return respon
+                return abort(406)
         else:
             return invalidUserInput('Get Claim')
 
@@ -556,17 +547,17 @@ def votes_up():
                 request.headers.get('x-api-key', None), db)
             votes = list() if current_user.votes is None else list(voteToJson(x) for x in current_user.votes.split(
             ','))
-            if any(list(x.keys())[0] == int(data.get('id')) and list(x.values())[0] == 1 for x in votes):
-                return api_res('success', "Claim already vote up", 'Votes', 0, '', [])
-            else:
-                for i, vote in enumerate(votes):
-                    vote_id = list(vote.keys())[0]
-                    if  vote_id== int(data.get('id')):
+            for i, vote in enumerate(votes):
+                if vote.get('id') == int(data.get('id')):
+                    if vote['value'] == 1:
+                        return api_res('success', "Claim already vote up", 'Votes', 0, '', [])
+                    elif vote['value'] == -1:
                         del votes[i]
                         break
-                else:
-                    votes.append({data.get('id'):1})
-            current_user.votes = ','.join([str(list(x.keys())[0]) + ":" + str(list(x.keys())[1]) for x in votes])
+            else:
+                id = int(data.get('id'))
+                votes.append({'id': id, 'value': 1})
+            current_user.votes = ','.join([str(x.get('id')) + ":" + str(x.get('value')) for x in votes]) if len(votes) > 0 else None
             db.update_where('users', current_user.get(), {'id': current_user.id})
             return api_res('success', "Votes added", 'Votes', 0, '', [])
         else:
@@ -584,15 +575,16 @@ def votes_down():
             votes = list() if current_user.votes is None else list(voteToJson(x) for x in current_user.votes.split(
             ','))
             for i, vote in enumerate(votes):
-                if list(vote.keys())[0] == int(data.get('id')):
-                    if list(vote.values())[0] == 1:
+                if vote.get('id') == int(data.get('id')):
+                    if vote['value'] == 1:
                         del votes[i]
                         break
-                    if list(vote.values())[0] == -1:
+                    elif vote['value'] == -1:
                         return api_res('success', "Claim already vote down", 'Votes', 0, '', [])
             else:
-                votes.append({data.get('id'):-1})
-            current_user.votes = ','.join([str(list(x.keys())[0]) + ":" + str(list(x.keys())[1]) for x in votes])
+                id = int(data.get('id'))
+                votes.append({'id': id, 'value': -1})
+            current_user.votes = ','.join([str(x.get('id')) + ":" + str(x.get('value')) for x in votes]) if len(votes) > 0 else None
             db.update_where('users', current_user.get(), {'id': current_user.id})
             return api_res('success', "Votes reduced", 'Votes', 0, '', [])
         else:
@@ -627,6 +619,10 @@ def api_session():
         return jsonify({'api_key':api_session.api_key, 'user_id': api_session.user_id, 'date_login':api_session.date_created})
     else:
         return invalidRequest()
+    
+@app.route("/api/auth/reset/", methods=['POST'])
+def auth_reset():
+    return abort(423)
 
 if __name__ == '__main__':
     server_port = os.environ.get('FLASK_RUN_PORT', '8080')

@@ -27,7 +27,7 @@ def api_res(status: str, message: str, source: str, total: int, dataname: str, d
 
 
 def invalidRequest():
-    return api_res('failed', 'Invalid Request or access denied', '', 0, '', {})
+    return api_res('failed', 'Invalid Content-Type or don\'t have permission', '', 0, '', {})
 
 
 random = Random()
@@ -154,7 +154,7 @@ def checkValidAPIrequest(request, db, allow_no_apikey=False, content_type=['appl
 
 
 def invalidUserInput(source: str):
-    return api_res('failed', 'Invalid user input',  source, 0, '', {})
+    return api_res('failed', 'Invalid user input, some required fields do not exist',  source, 0, '', {})
 
 
 def getUserFromApiKey(api_key: str, db) -> User:
