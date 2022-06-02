@@ -2,6 +2,7 @@ import os
 from random import Random
 from models.User import User
 from models.Claim import Claim
+from models.ApiSession import ApiSession
 from flask import jsonify
 import gcloud as gcs
 import string
@@ -26,7 +27,7 @@ def api_res(status: str, message: str, source: str, total: int, dataname: str, d
 
 
 def invalidRequest():
-    return api_res('failed', 'Invalid Request or access denied', '', 0, '', {})
+    return api_res('failed', 'Invalid Content-Type or don\'t have permission', '', 0, '', {})
 
 
 random = Random()
@@ -46,7 +47,8 @@ def userToProfileJson(user: User, hidePresonalInformation: bool = True):
         # Do not send personal information
         votes = None
         bookmarks = None
-        date_created = user.date_created
+        date_created = None
+        email = None
     else:
         # Send personal information
         bookmarks = None if user.bookmarks is None else [int(x) for x in user.bookmarks.split(
@@ -54,11 +56,12 @@ def userToProfileJson(user: User, hidePresonalInformation: bool = True):
         votes = None if user.votes is None else [voteToJson(x) for x in user.votes.split(
             ',')]
         date_created = user.date_created
+        email = user.email
     return {
         "id": user.id,
         "username": user.username,
         "full_name": user.full_name,
-        "email": user.email,
+        "email": email,
         "bookmarks": bookmarks,
         "date_created": date_created,
         "verified": user.verified,
@@ -67,24 +70,21 @@ def userToProfileJson(user: User, hidePresonalInformation: bool = True):
 
 
 def uploader(bytes, destination: str) -> bool:
+    logger.debug('Request upload file')
     destination = destination.strip()
     if any(destination.lower().endswith(x) for x in os.environ.get('UPLOAD_ALLOWED_EXSTENSION', '.jpg;.jpeg;.png;.bmp').split(';')):
         if int(os.environ.get("LOCAL", 0)) == 1:
             full_path = os.path.join(os.getcwd(), destination)
-            if os.path.exists(full_path):
-                raise Exception("File already exists")
-            else:
-                with open(full_path, 'wb') as uploadfile:
-                    uploadfile.write(bytes)
+            if not os.path.exists(os.path.dirname(destination)):
+                os.mkdir(os.path.dirname(destination))
+            with open(full_path, 'wb') as uploadfile:
+                uploadfile.write(bytes)
             logger.debug('File upload to "' + full_path + '"')
         else:
             full_path = "gs://{}/uploads/{}".format(
                 os.getenv('BUCKET_NAME'), destination)
-            if gcs.isFileExist(full_path) or gcs.isFolderExist(full_path):
-                raise Exception("File already exists")
-            else:
-                with gcs.getBlob(full_path).open('wb') as uploadfile:
-                    uploadfile.write(bytes)
+            with gcs.getBlob(full_path).open('wb') as uploadfile:
+                uploadfile.write(bytes)
             logger.debug('File upload to "' + full_path + '"')
     else:
         raise Exception('Extension not Allowed')
@@ -134,7 +134,13 @@ def isValidApiKey(api_key: str, db) -> bool:
 
 def checkValidAPIrequest(request, db, allow_no_apikey=False, content_type=['application/json', 'multipart/form-data', 'application/x-www-form-urlencoded']) -> bool:
     # check if content type is equal
-    if any(request.headers.get('Content-Type', 'NULL').startswith(x) for x in content_type) or content_type is None:
+    if content_type is None:
+        if allow_no_apikey:
+            return True
+        else:
+            # check if api key is valid
+            return isValidApiKey(request.headers.get('x-api-key', None), db)
+    elif any(request.headers.get('Content-Type', 'NULL').startswith(x) for x in content_type):
         if allow_no_apikey:
             return True
         else:
@@ -145,7 +151,7 @@ def checkValidAPIrequest(request, db, allow_no_apikey=False, content_type=['appl
 
 
 def invalidUserInput(source: str):
-    return api_res('failed', 'Invalid user input',  source, 0, '', {})
+    return api_res('failed', 'Invalid user input, some required fields do not exist',  source, 0, '', {})
 
 
 def getUserFromApiKey(api_key: str, db) -> User:

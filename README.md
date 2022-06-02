@@ -24,12 +24,18 @@ Table Of Contents
 - URL: `/api/auth/`
 - Content-Type: `application/json` or `application/x-www-form-urlencoded` or `multipart/form-data`
 - Fields:
-  - username > Username
+  - email > Email
   - password > User password
 
 ### Response
 
-**_Api Key_** as String
+Dictonary of result
+```json
+{
+"Api Key",
+"user_id"
+}
+```
 
 ### Description
 
@@ -49,7 +55,7 @@ User login to get **_Api Key_**.
 
 ### Response
 
-Response status
+Give Dictionary of user details
 
 ### Description
 
@@ -201,6 +207,7 @@ Get claim details by ID
 - Changeable Fields:
   - email > Change email [Optional]
   - full_name > Change Full name [Optional]
+  - bookmarks > Change bookmarks list [Optional]
   - avatar > Change Profile Picture (Upload File) [Optional]
 
 ### Response
@@ -262,14 +269,114 @@ Set claim details
 
 Create new Claim
 
+## List My Claims
+
+### Usage
+
+- URL: `/api/get/myclaims/`
+- Content-Type: `application/json` or `application/x-www-form-urlencoded` or `multipart/form-data`
+- x-api-key: <USER_API_KEY>
+- Field:
+  - start -> Start index [Optional]
+  - limit -> Max total result [Optional]
+
+### Response
+
+Give array of claim details
+
+### Description
+
+List all of claims created by user
+
+## Add Bookmarks
+
+### Usage
+
+- URL: `/api/bookmarks/add/`
+- Content-Type: `application/json` or `application/x-www-form-urlencoded` or `multipart/form-data`
+- x-api-key: <USER_API_KEY>
+- Fields:
+  - id -> Claim ID
+### Response
+
+Response status
+
+### Description
+
+Add claim to current user bookmarks
+
+## Remove Bookmarks
+
+### Usage
+
+- URL: `/api/bookmarks/remove/`
+- Content-Type: `application/json` or `application/x-www-form-urlencoded` or `multipart/form-data`
+- x-api-key: <USER_API_KEY>
+- Fields:
+  - id -> Claim ID
+### Response
+
+Response status
+
+### Description
+
+Remove claim to current user bookmarks
+
+## Up Votes
+
+### Usage
+
+- URL: `/api/votes/up/`
+- Content-Type: `application/json` or `application/x-www-form-urlencoded` or `multipart/form-data`
+- x-api-key: <USER_API_KEY>
+- Fields:
+  - id -> Claim ID
+### Response
+
+Response status
+
+### Description
+
+Votes up given claim
+
+## Down Votes
+
+### Usage
+
+- URL: `/api/votes/down/`
+- Content-Type: `application/json` or `application/x-www-form-urlencoded` or `multipart/form-data`
+- x-api-key: <USER_API_KEY>
+- Fields:
+  - id -> Claim ID
+### Response
+
+Response status
+
+### Description
+
+Votes down given claim
+
 # Page Links
+
+## Get API Session
+
+### Usage
+
+- URL: `/api/session/`
+- x-api-key: <USER_API_KEY>
+
+### Response
+
+Return dictionary of api_key, user_id, date_login
+
+### Description
+
+Return current session
 
 ## Claim Resources
 
 - URL: `/uploads/claim/<claim_id>/<resources_path>`
 - Content-Type: **None**
-
-# Page Links
 
 ## User Avatar
 

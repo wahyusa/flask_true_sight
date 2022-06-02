@@ -68,10 +68,10 @@ def auth():
     # Check is valid request and allow without api key
     if checkValidAPIrequest(request, db, allow_no_apikey=True):
         data: dict = convert_request(request)
-        if all(x in data for x in ['username', 'password']):
+        if all(x in data for x in ['email', 'password']):
             # Query users where username matched input
             user = db.get_where(
-                'users', {'username': data['username']})
+                'users', {'email': data['email']})
 
             if len(user) > 0:
                 # Cast to User()
@@ -87,19 +87,18 @@ def auth():
 
                     if len(query_api) > 0:
                         # If exist then return api key
-                        return api_res('success', '', 'Auth', 0, 'ApiKey', query_api[0][1])
+                        return api_res('success', '', 'Auth', 0, 'ApiKey',{'api_key':query_api[0][1], 'user_id': user.id} )
                     else:
                         # Generate new api key
                         api_key = generate_key(64)
 
                         # Save new api key to database
-                        db.insert('api_session', {
-                            'api_key': api_key, 'user_id': user.id, 'date_created': datetime.now().timestamp(), 'expired': 0})
+                        db.insert('api_session', ApiSession().set(None, api_key, user.id, datetime.now().timestamp(), 0).get())
 
-                        return api_res('success', '', 'Auth', 0, 'ApiKey', api_key)
+                        return api_res('success', '', 'Auth', 0, 'ApiKey', {'api_key':api_key, 'user_id': user.id})
 
             # Return failed if no matches condition
-            return api_res('failed', 'Wrong username/password', 'Auth', 0, 'ApiKey', [])
+            return api_res('failed', 'Wrong email/password', 'Auth', 0, 'ApiKey', [])
         else:
             # Return if no needed field in request
             return invalidUserInput('Auth')
@@ -139,10 +138,9 @@ def reqistration():
 
         # Generate new api key and insert into table
         api_key = generate_key(64)
-        db.insert('api_session', {
-            'api_key': api_key, 'user_id': user.id, 'date_created': datetime.now().timestamp(), 'expired': 0})
+        db.insert('api_session', ApiSession().set(None, api_key, user.id, datetime.now().timestamp(), 0).get())
 
-        return api_res('success', 'User added', 'Registration', 0, '', [])
+        return api_res('success', 'User added', 'Registration', 0, '', user.get())
     else:
         return invalidRequest()
 
@@ -361,12 +359,7 @@ def get_profile():
                 else:
                     return api_res('success', '', 'Get Profile', 0, 'profile', userToProfileJson(profil))
             else:
-                respon = app.response_class(
-                    response=json.dumps('User doesn\'t exist'),
-                    status=406,
-                    mimetype='application/json'
-                )
-                return respon
+                return abort(406)
         else:
             return invalidUserInput('Get Profile')
     else:
@@ -383,11 +376,7 @@ def get_claim():
                 claim: Claim = Claim.parse(claims[0])
                 return api_res('success', '', 'Claim', 0, 'claim', claim.get())
             else:
-                respon = app.make_response("ss")
-                respon.status_code = 406
-                respon.headers.remove('Content-Type')
-                respon.headers.add('Content-Type', 'application/json')
-                return respon
+                return abort(406)
         else:
             return invalidUserInput('Get Claim')
 
@@ -399,12 +388,17 @@ def get_claim():
 def set_profile():
     if checkValidAPIrequest(request, db, content_type=['multipart/form-data']):
         data: dict = convert_request(request)
-        if any(x in data for x in ['email', 'full_name']) or 'avatar' in request.files:
+        if any(x in data for x in ['email', 'full_name', 'bookmarks']) or 'avatar' in request.files:
             current_user: User = getUserFromApiKey(
                 request.headers.get('x-api-key', None), db)
             current_user.email = data.get('email', current_user.email)
             current_user.full_name = data.get(
                 'full_name', current_user.full_name)
+            if 'bookmarks' in data:
+                if isinstance(data.get('bookmarks'), list):
+                    current_user.bookmarks = ','.join(str(x) for x in data.get('bookmarks'))
+                elif isinstance(data.get('bookmarks', str)):
+                    current_user.bookmarks = data.get('bookmarks')
             db.update_where('users', current_user.get(),
                             {'id': current_user.id})
             if 'avatar' in request.files:
@@ -414,11 +408,11 @@ def set_profile():
                 try:
                     if '.' in avatar.filename:
                         uploader(avatar.stream.read(), 'avatar/' +
-                                 current_user.id + "." + avatar.filename.split('.')[-1])
+                                 str(current_user.id) + "." + avatar.filename.split('.')[-1])
                     else:
                         raise Exception('Extension not allowed')
                 except Exception as ex:
-                    return api_res('failed', ex, 'Profile', 0, 'avatar', [])
+                    return api_res('failed', str(ex), 'Profile', 0, 'avatar', [])
             return api_res('success', "", 'Profile', 0, '', [])
         else:
             return invalidUserInput('Set Profile')
@@ -448,9 +442,9 @@ def set_claim():
                         uploader(file.stream.read(), 'claim/' +
                                  claim.id + "/" + file.name)
                         attachmentUrl.append(os.getenv('BASE_URL') + 'claim/' +
-                                             claim.id + "/" + file.name)
+                                             str(claim.id) + "/" + file.name)
                     except Exception as ex:
-                        return api_res('failed', ex, 'Attachment', 0, file.name, [])
+                        return api_res('failed', str(ex), 'Attachment', 0, file.name, [])
 
                 if len(attachmentUrl) > 0:
                     claim.attachment = ','.join(attachmentUrl)
@@ -464,11 +458,6 @@ def set_claim():
 
     else:
         return invalidRequest()
-
-
-@app.route("/test/")
-def test():
-    pass
 
 
 @app.route("/api/create/claim/", methods=['POST'])
@@ -498,9 +487,9 @@ def create_claim():
                     uploader(file.stream.read(), 'claim/' +
                              claim.id + "/" + file.name)
                     attachmentUrl.append(os.getenv('BASE_URL') + 'claim/' +
-                                         claim.id + "/" + file.name)
+                                         str(claim.id) + "/" + file.name)
                 except Exception as ex:
-                    return api_res('failed', ex, 'Attachment', 0, file.name, [])
+                    return api_res('failed', str(ex), 'Attachment', 0, file.name, [])
 
             if len(attachmentUrl) > 0:
                 claim.attachment = ','.join(attachmentUrl)
@@ -512,6 +501,133 @@ def create_claim():
     else:
         return invalidRequest()
 
+@app.route("/api/bookmarks/add/", methods=['POST'])
+def bookmark_add():
+    if checkValidAPIrequest(request, db):
+        data: dict = convert_request(request)
+        if all(x in data for x in ['id']):
+            current_user: User = getUserFromApiKey(
+                request.headers.get('x-api-key', None), db)
+            bookmarks = list() if current_user.bookmarks is None else list(int(x) for x in current_user.bookmarks.split(
+            ','))
+            if int(data.get('id')) in bookmarks:
+                return api_res('success', "Already bookmarks", 'Bookmark', 0, '', [])
+            else:
+                bookmarks.append(int(data.get('id')))
+            current_user.bookmarks = ','.join([str(x) for x in bookmarks]) if len(bookmarks) > 0 else None
+            db.update_where('users', current_user.get(), {'id': current_user.id})
+            return api_res('success', "Bookmark added", 'Bookmark', 0, '', [])
+        else:
+            return invalidUserInput('Add bookmarks')
+    else:
+        return invalidRequest()
+    
+@app.route("/api/bookmarks/remove/", methods=['POST'])
+def bookmark_remove():
+    if checkValidAPIrequest(request, db):
+        data: dict = convert_request(request)
+        if all(x in data for x in ['id']):
+            current_user: User = getUserFromApiKey(
+                request.headers.get('x-api-key', None), db)
+            bookmarks = list() if current_user.bookmarks is None else list(int(x) for x in current_user.bookmarks.split(
+            ','))
+            if int(data.get('id')) in bookmarks:
+                bookmarks.remove(int(data.get('id')))
+            else:
+                return api_res('success', "Claim is not bookmarked", 'Bookmark', 0, '', [])
+            current_user.bookmarks = ','.join([str(x) for x in bookmarks]) if len(bookmarks) > 0 else None
+            db.update_where('users', current_user.get(), {'id': current_user.id})
+            return api_res('success', "Bookmark removed", 'Bookmark', 0, '', [])
+        else:
+            return invalidUserInput('Remove bookmark')
+    else:
+        return invalidRequest()
+    
+@app.route("/api/votes/up/", methods=['POST'])
+def votes_up():
+    if checkValidAPIrequest(request, db):
+        data: dict = convert_request(request)
+        if all(x in data for x in ['id']):
+            current_user: User = getUserFromApiKey(
+                request.headers.get('x-api-key', None), db)
+            votes = list() if current_user.votes is None else list(voteToJson(x) for x in current_user.votes.split(
+            ','))
+            for i, vote in enumerate(votes):
+                if vote.get('id') == int(data.get('id')):
+                    if vote['value'] == 1:
+                        return api_res('success', "Claim already vote up", 'Votes', 0, '', [])
+                    elif vote['value'] == -1:
+                        del votes[i]
+                        break
+            else:
+                id = int(data.get('id'))
+                votes.append({'id': id, 'value': 1})
+            current_user.votes = ','.join([str(x.get('id')) + ":" + str(x.get('value')) for x in votes]) if len(votes) > 0 else None
+            db.update_where('users', current_user.get(), {'id': current_user.id})
+            return api_res('success', "Votes added", 'Votes', 0, '', [])
+        else:
+            return invalidUserInput('Add votes')
+    else:
+        return invalidRequest()
+    
+@app.route("/api/votes/down/", methods=['POST'])
+def votes_down():
+    if checkValidAPIrequest(request, db):
+        data: dict = convert_request(request)
+        if all(x in data for x in ['id']):
+            current_user: User = getUserFromApiKey(
+                request.headers.get('x-api-key', None), db)
+            votes = list() if current_user.votes is None else list(voteToJson(x) for x in current_user.votes.split(
+            ','))
+            for i, vote in enumerate(votes):
+                if vote.get('id') == int(data.get('id')):
+                    if vote['value'] == 1:
+                        del votes[i]
+                        break
+                    elif vote['value'] == -1:
+                        return api_res('success', "Claim already vote down", 'Votes', 0, '', [])
+            else:
+                id = int(data.get('id'))
+                votes.append({'id': id, 'value': -1})
+            current_user.votes = ','.join([str(x.get('id')) + ":" + str(x.get('value')) for x in votes]) if len(votes) > 0 else None
+            db.update_where('users', current_user.get(), {'id': current_user.id})
+            return api_res('success', "Votes reduced", 'Votes', 0, '', [])
+        else:
+            return invalidUserInput('Down votes')
+    else:
+        return invalidRequest()
+    
+@app.route("/api/get/myclaims/", methods=['POST'])
+def my_claim():
+    if checkValidAPIrequest(request, db):
+        data: dict = convert_request(request)
+        start = data.get('start', 0)
+        limit = data.get('limit', 99999)
+        current_user: User = getUserFromApiKey(
+            request.headers.get('x-api-key', None), db)
+        query_result = db.get_where('claims', {'author_id': current_user.id})
+        claims_proses = list()
+        for claim in query_result:
+            claims_proses.append(Claim.parse(claim).get())
+        return api_res('success', "", 'My Claim', len(claims_proses), 'claim', claims_proses[start:start+limit])
+    else:
+        return invalidRequest()
+    
+@app.route("/api/session/", methods=['GET', 'POST'])
+def api_session():
+    if checkValidAPIrequest(request, db, content_type=None):
+        data: dict = convert_request(request)
+        current_user: User = getUserFromApiKey(
+            request.headers.get('x-api-key', None), db)
+        query_result = db.get_where('api_session', {'user_id': current_user.id})[0]
+        api_session = ApiSession.parse(query_result)
+        return jsonify({'api_key':api_session.api_key, 'user_id': api_session.user_id, 'date_login':api_session.date_created})
+    else:
+        return invalidRequest()
+    
+@app.route("/api/auth/reset/", methods=['POST'])
+def auth_reset():
+    return abort(423)
 
 if __name__ == '__main__':
     server_port = os.environ.get('FLASK_RUN_PORT', '8080')
