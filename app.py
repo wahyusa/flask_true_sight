@@ -559,28 +559,32 @@ def votes_up():
         if all(x in data for x in ['id']):
             current_user: User = getUserFromApiKey(
                 request.headers.get('x-api-key', None), db)
-            votes = list() if current_user.votes is None else list(voteToJson(x) for x in current_user.votes.split(
-            ','))
-            # Check if present, if not then add
-            for i, vote in enumerate(votes):
-                if vote.get('id') == int(data.get('id')):
-                    if vote['value'] == 1:
-                        return api_res('success', "Claim already vote up", 'Votes', 0, '', [])
-                    elif vote['value'] == -1:
-                        del votes[i]
-                        break
+            claims = db.get_where('claims', {'id': data.get('id')})
+            if len(claims) >0:
+                votes = list() if current_user.votes is None else list(voteToJson(x) for x in current_user.votes.split(
+                ','))
+                # Check if present, if not then add
+                for i, vote in enumerate(votes):
+                    if vote.get('id') == int(data.get('id')):
+                        if vote['value'] == 1:
+                            return api_res('success', "Claim already vote up", 'Votes', 0, '', [])
+                        elif vote['value'] == -1:
+                            del votes[i]
+                            break
+                else:
+                    id = int(data.get('id'))
+                    votes.append({'id': id, 'value': 1})
+                
+                # Change total vote for claim
+                selected_claim = Claim.parse(db.get_where('claims', {'id': data.get('id')}))
+                selected_claim.upvote += 1
+                current_user.votes = ','.join([str(x.get('id')) + ":" + str(x.get('value')) for x in votes]) if len(votes) > 0 else None
+                # Update database
+                db.update_where('users', current_user.get(), {'id': current_user.id})
+                db.update_where('claims', selected_claim.get(), {'id': selected_claim.id})
+                return api_res('success', "Votes added", 'Votes', 0, '', [])
             else:
-                id = int(data.get('id'))
-                votes.append({'id': id, 'value': 1})
-            
-            # Change total vote for claim
-            selected_claim = Claim.parse(db.get_where('claims', {'id': data.get('id')})[0])
-            selected_claim.upvote += 1
-            current_user.votes = ','.join([str(x.get('id')) + ":" + str(x.get('value')) for x in votes]) if len(votes) > 0 else None
-            # Update database
-            db.update_where('users', current_user.get(), {'id': current_user.id})
-            db.update_where('claims', selected_claim.get(), {'id': selected_claim.id})
-            return api_res('success', "Votes added", 'Votes', 0, '', [])
+                    return api_res('failed', "Claim with given id doesn't exist", 'Votes', 0, '', [])
         else:
             return invalidUserInput('Add votes')
     else:
@@ -593,28 +597,32 @@ def votes_down():
         if all(x in data for x in ['id']):
             current_user: User = getUserFromApiKey(
                 request.headers.get('x-api-key', None), db)
-            votes = list() if current_user.votes is None else list(voteToJson(x) for x in current_user.votes.split(
-            ','))
-            # Check if present, if not then add
-            for i, vote in enumerate(votes):
-                if vote.get('id') == int(data.get('id')):
-                    if vote['value'] == 1:
-                        del votes[i]
-                        break
-                    elif vote['value'] == -1:
-                        return api_res('success', "Claim already vote down", 'Votes', 0, '', [])
+            claims = db.get_where('claims', {'id': data.get('id')})
+            if len(claims) >0:
+                selected_claim = Claim.parse(claims[0])
+                votes = list() if current_user.votes is None else list(voteToJson(x) for x in current_user.votes.split(
+                ','))
+                # Check if present, if not then add
+                for i, vote in enumerate(votes):
+                    if vote.get('id') == int(data.get('id')):
+                        if vote['value'] == 1:
+                            del votes[i]
+                            break
+                        elif vote['value'] == -1:
+                            return api_res('success', "Claim already vote down", 'Votes', 0, '', [])
+                else:
+                    id = int(data.get('id'))
+                    votes.append({'id': id, 'value': -1})
+                
+                # Change total vote for claim
+                selected_claim.downvote += 1
+                current_user.votes = ','.join([str(x.get('id')) + ":" + str(x.get('value')) for x in votes]) if len(votes) > 0 else None
+                # Update database
+                db.update_where('users', current_user.get(), {'id': current_user.id})
+                db.update_where('claims', selected_claim.get(), {'id': selected_claim.id})
+                return api_res('success', "Votes reduced", 'Votes', 0, '', [])
             else:
-                id = int(data.get('id'))
-                votes.append({'id': id, 'value': -1})
-            
-            # Change total vote for claim
-            selected_claim = Claim.parse(db.get_where('claims', {'id': data.get('id')})[0])
-            selected_claim.downvote += 1
-            current_user.votes = ','.join([str(x.get('id')) + ":" + str(x.get('value')) for x in votes]) if len(votes) > 0 else None
-            # Update database
-            db.update_where('users', current_user.get(), {'id': current_user.id})
-            db.update_where('claims', selected_claim.get(), {'id': selected_claim.id})
-            return api_res('success', "Votes reduced", 'Votes', 0, '', [])
+                return api_res('failed', "Claim with given id doesn't exist", 'Votes', 0, '', [])
         else:
             return invalidUserInput('Down votes')
     else:
