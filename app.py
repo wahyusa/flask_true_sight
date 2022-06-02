@@ -87,7 +87,7 @@ def auth():
 
                     if len(query_api) > 0:
                         # If exist then return api key
-                        return api_res('success', '', 'Auth', 0, 'ApiKey', query_api[0][1])
+                        return api_res('success', '', 'Auth', 0, 'ApiKey',{'api_key':query_api[0][1], 'user_id': user.id} )
                     else:
                         # Generate new api key
                         api_key = generate_key(64)
@@ -98,7 +98,7 @@ def auth():
                         return api_res('success', '', 'Auth', 0, 'ApiKey', {'api_key':api_key, 'user_id': user.id})
 
             # Return failed if no matches condition
-            return api_res('failed', 'Wrong username/password', 'Auth', 0, 'ApiKey', [])
+            return api_res('failed', 'Wrong email/password', 'Auth', 0, 'ApiKey', [])
         else:
             # Return if no needed field in request
             return invalidUserInput('Auth')
@@ -388,12 +388,17 @@ def get_claim():
 def set_profile():
     if checkValidAPIrequest(request, db, content_type=['multipart/form-data']):
         data: dict = convert_request(request)
-        if any(x in data for x in ['email', 'full_name']) or 'avatar' in request.files:
+        if any(x in data for x in ['email', 'full_name', 'bookmarks']) or 'avatar' in request.files:
             current_user: User = getUserFromApiKey(
                 request.headers.get('x-api-key', None), db)
             current_user.email = data.get('email', current_user.email)
             current_user.full_name = data.get(
                 'full_name', current_user.full_name)
+            if 'bookmarks' in data:
+                if isinstance(data.get('bookmarks'), list):
+                    current_user.bookmarks = ','.join(str(x) for x in data.get('bookmarks'))
+                elif isinstance(data.get('bookmarks', str)):
+                    current_user.bookmarks = data.get('bookmarks')
             db.update_where('users', current_user.get(),
                             {'id': current_user.id})
             if 'avatar' in request.files:
@@ -403,11 +408,11 @@ def set_profile():
                 try:
                     if '.' in avatar.filename:
                         uploader(avatar.stream.read(), 'avatar/' +
-                                 current_user.id + "." + avatar.filename.split('.')[-1])
+                                 str(current_user.id) + "." + avatar.filename.split('.')[-1])
                     else:
                         raise Exception('Extension not allowed')
                 except Exception as ex:
-                    return api_res('failed', ex, 'Profile', 0, 'avatar', [])
+                    return api_res('failed', str(ex), 'Profile', 0, 'avatar', [])
             return api_res('success', "", 'Profile', 0, '', [])
         else:
             return invalidUserInput('Set Profile')
@@ -437,9 +442,9 @@ def set_claim():
                         uploader(file.stream.read(), 'claim/' +
                                  claim.id + "/" + file.name)
                         attachmentUrl.append(os.getenv('BASE_URL') + 'claim/' +
-                                             claim.id + "/" + file.name)
+                                             str(claim.id) + "/" + file.name)
                     except Exception as ex:
-                        return api_res('failed', ex, 'Attachment', 0, file.name, [])
+                        return api_res('failed', str(ex), 'Attachment', 0, file.name, [])
 
                 if len(attachmentUrl) > 0:
                     claim.attachment = ','.join(attachmentUrl)
@@ -482,9 +487,9 @@ def create_claim():
                     uploader(file.stream.read(), 'claim/' +
                              claim.id + "/" + file.name)
                     attachmentUrl.append(os.getenv('BASE_URL') + 'claim/' +
-                                         claim.id + "/" + file.name)
+                                         str(claim.id) + "/" + file.name)
                 except Exception as ex:
-                    return api_res('failed', ex, 'Attachment', 0, file.name, [])
+                    return api_res('failed', str(ex), 'Attachment', 0, file.name, [])
 
             if len(attachmentUrl) > 0:
                 claim.attachment = ','.join(attachmentUrl)

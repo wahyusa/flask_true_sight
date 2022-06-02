@@ -8,6 +8,7 @@ instance/*
 # Web dir
 claim/
 profile/
+avatar/
 
 ### Flask.Python Stack ###
 # Byte-compiled / optimized / DLL files
