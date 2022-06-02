@@ -8,7 +8,6 @@ from datetime import datetime
 import gcloud as gcs
 import os
 import magic
-import re
 
 
 # from google.appengine.api import app_identity
@@ -95,10 +94,10 @@ def auth():
                         # Save new api key to database
                         db.insert('api_session', ApiSession().set(None, api_key, user.id, datetime.now().timestamp(), 0).get())
 
-                        return api_res('success', '', 'Auth', 0, 'ApiKey', {'api_key':api_key, 'user_id': user.id})
+                        return api_res('success', '', 'Auth', 0, 'ApiKey', {'api_key':api_key, 'user': user.get()})
 
             # Return failed if no matches condition
-            return api_res('failed', 'Wrong email/password', 'Auth', 0, 'ApiKey', [])
+            return api_res('failed', 'Wrong email or password', 'Auth', 0, 'ApiKey', [])
         else:
             # Return if no needed field in request
             return invalidUserInput('Auth')
@@ -622,6 +621,18 @@ def api_session():
         query_result = db.get_where('api_session', {'user_id': current_user.id})[0]
         api_session = ApiSession.parse(query_result)
         return jsonify({'api_key':api_session.api_key, 'user_id': api_session.user_id, 'date_login':api_session.date_created})
+    else:
+        return invalidRequest()
+    
+@app.route("/api/auth/logout/", methods=['GET', 'POST'])
+def end_session():
+    if checkValidAPIrequest(request, db, content_type=None):
+        data: dict = convert_request(request)
+        current_user: User = getUserFromApiKey(
+            request.headers.get('x-api-key', None), db)
+        query_result = db.get_where('api_session', {'user_id': current_user.id})[0]
+        api_session = ApiSession.parse(query_result)
+        return ""
     else:
         return invalidRequest()
     
