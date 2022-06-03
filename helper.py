@@ -90,6 +90,19 @@ def uploader(bytes, destination: str) -> bool:
     else:
         raise Exception('Extension not Allowed')
 
+def deletefromresource(destination: str) -> bool:
+    logger.debug('Request delete file')
+    destination = destination.strip()
+    if int(os.environ.get("LOCAL", 0)) == 1:
+        full_path = os.path.join(os.getcwd(), destination)
+        if os.path.exists(os.path.dirname(destination)):
+            os.remove(destination)
+        else:
+            logger.err('File not found "' + full_path + '"')
+    else:
+        full_path = "gs://{}/uploads/{}".format(
+            os.getenv('BUCKET_NAME'), destination)
+        gcs.getBlob(full_path).delete()
 
 def predict(claim: str, tensorhelper: TensorHelper):
     """Predict from string"""

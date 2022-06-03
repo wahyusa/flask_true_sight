@@ -436,11 +436,20 @@ def set_claim():
                 claim.fake = int(data.get('fake', 1 if claim.fake else 0)) == 1
                 claim.url = data.get('url', claim.url)
                 attachmentUrl = list()
+                # Remove last Resource if exists
+                if  len(request.files) > 0:
+                    for last_attachment in claim.attachment.split(','):
+                        try:
+                            path_to_file = last_attachment[len(os.getenv('BASE_URL')):]
+                            deletefromresource(path_to_file)
+                        except Exception as ex:
+                            logger.debug(ex)
                 for _, file in request.files.items():
                     # Allowed max 5 MiB
                     if file.content_length > 5242880:
                         return api_res('failed', 'File size is too big', 'Attachment', 0, file.filename, [])
                     try:
+                        # Upload to storage
                         uploader(file.stream.read(), 'claim/' +
                                  str(claim.id) + "/" + file.filename)
                         attachmentUrl.append(os.getenv('BASE_URL') + 'claim/' +
@@ -448,6 +457,7 @@ def set_claim():
                     except Exception as ex:
                         return api_res('failed', str(ex), 'Attachment', 0, file.filename, [])
 
+                # Add to claim attachment
                 if len(attachmentUrl) > 0:
                     claim.attachment = ','.join(attachmentUrl)
 
@@ -484,11 +494,12 @@ def create_claim():
 
             attachmentUrl = list()
             for _, file in request.files.items():
+                # Allowed max 5 MiB
                 if file.content_length > 5242880:
                     return api_res('failed', 'file to large', 'Attachment', 0, file.name, [])
                 try:
                     uploader(file.stream.read(), 'claim/' +
-                             claim.id + "/" + file.name)
+                             str(claim.id) + "/" + file.name)
                     attachmentUrl.append(os.getenv('BASE_URL') + 'claim/' +
                                          str(claim.id) + "/" + file.name)
                 except Exception as ex:
