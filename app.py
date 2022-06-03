@@ -401,14 +401,13 @@ def set_profile():
                     current_user.bookmarks = data.get('bookmarks')
             if 'avatar' in request.files:
                 avatar = request.files.get('avatar')
-                if avatar.content_length > 5242880:
+                # Allowed max 2 MiB
+                if avatar.content_length > 2097152:
                     return api_res('failed', 'File size is too big', 'Profile', 0, 'avatar', [])
                 try:
                     if '.' in avatar.filename:
-                        uploader(avatar.stream.read(), 'avatar/' +
-                                 str(current_user.id) + "." + avatar.filename.split('.')[-1])
-                        current_user.avatar = os.getenv['BASE_URL'] + 'uploads/avatar/' + \
-                                 str(current_user.id) + "." + avatar.filename.split('.')[-1]
+                        uploader(avatar.stream.read(), 'avatar/' + str(current_user.id) + "." + avatar.filename.split('.')[-1])
+                        current_user.avatar = os.getenv('BASE_URL') + 'uploads/avatar/' + str(current_user.id) + "." + avatar.filename.split('.')[-1]
                     else:
                         raise Exception('Extension not allowed')
                 except Exception as ex:
@@ -426,7 +425,7 @@ def set_profile():
 def set_claim():
     if checkValidAPIrequest(request, db, content_type=['multipart/form-data']):
         data: dict = convert_request(request)
-        if any(x in data for x in ['title', 'description', 'fake', 'url']) and 'id' in data:
+        if (any(x in data for x in ['title', 'description', 'fake', 'url']) or len(request.files) > 0) and 'id' in data:
             current_user: User = getUserFromApiKey(
                 request.headers.get('x-api-key', None), db)
             claim = Claim.parse(db.get_where(
@@ -438,15 +437,16 @@ def set_claim():
                 claim.url = data.get('url', claim.url)
                 attachmentUrl = list()
                 for _, file in request.files.items():
+                    # Allowed max 5 MiB
                     if file.content_length > 5242880:
-                        return api_res('failed', 'File size is too big', 'Attachment', 0, file.name, [])
+                        return api_res('failed', 'File size is too big', 'Attachment', 0, file.filename, [])
                     try:
                         uploader(file.stream.read(), 'claim/' +
-                                 claim.id + "/" + file.name)
+                                 str(claim.id) + "/" + file.filename)
                         attachmentUrl.append(os.getenv('BASE_URL') + 'claim/' +
-                                             str(claim.id) + "/" + file.name)
+                                             str(claim.id) + "/" + file.filename)
                     except Exception as ex:
-                        return api_res('failed', str(ex), 'Attachment', 0, file.name, [])
+                        return api_res('failed', str(ex), 'Attachment', 0, file.filename, [])
 
                 if len(attachmentUrl) > 0:
                     claim.attachment = ','.join(attachmentUrl)
