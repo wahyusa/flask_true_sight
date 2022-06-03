@@ -11,6 +11,14 @@ Table Of Contents
   - [Set Own Profile](#set-own-profile)
   - [Set Claim Details](#set-claim-details)
   - [Create New Claim](#create-new-claim)
+  - [Delete Claim](#delete-claim)
+  - [List My Claims](#list-my-claims)
+  - [Add bookmarks](#add-bookmarks)
+  - [Remove bookmarks](#remove-bookmarks)
+  - [List bookmarks](#list-bookmarks)
+  - [Up Votes](#up-votes)
+  - [Up Votes](#down-votes)
+  - [Logout](#logout)
 - [Page Links](#page-links)
   - [Claim Resources](#claim-resources)
   - [User Avatar](#user-avatar)
@@ -202,7 +210,7 @@ Get claim details by ID
 - URL: `/api/set/profile/`
 - Content-Type: `multipart/form-data`
 - x-api-key: <USER_API_KEY>
-- Maximum File Size Allowed: `5 MiB`
+- Maximum File Size Allowed: `2 MiB`
 - Allowed Upload Extensions: `JPG` `JPEG` `PNG` `BMP` 
 - Changeable Fields:
   - email > Change email [Optional]
@@ -228,11 +236,14 @@ Set Own Profile Attributes
 - x-api-key: <USER_API_KEY>
 - Maximum File Size Allowed: `5 MiB`
 - Allowed Upload Extensions: `JPG` `JPEG` `PNG` `BMP` 
+- Required Fields:
+  - id -> Claim id
 - Changeable Fields:
   - title > Change claim title [Optional]
   - description > Change claim description [Optional]
   - fake > Change status Fake or Fact (**as integer**) [Optional]
   - url > Change url
+  - bookmarks > User bookmarks 
   - [...attachment_files...] > Change attachment files (just upload file with random field) [Optional]
 
 ### Response
@@ -269,6 +280,25 @@ Set claim details
 
 Create new Claim
 
+## Delete Claim
+
+### Usage
+
+- URL: `/api/delete/claim/`
+- Content-Type: `application/json` or `application/x-www-form-urlencoded` or `multipart/form-data`
+- x-api-key: <USER_API_KEY>
+- Fields:
+  - id -> Claim id
+
+### Response
+
+**Error**:
+> Forbidden 403
+
+### Description
+
+Delete Claim
+
 ## List My Claims
 
 ### Usage
@@ -297,6 +327,7 @@ List all of claims created by user
 - x-api-key: <USER_API_KEY>
 - Fields:
   - id -> Claim ID
+
 ### Response
 
 Response status
@@ -321,6 +352,22 @@ Response status
 ### Description
 
 Remove claim to current user bookmarks
+
+## List Bookmarks
+
+### Usage
+
+- URL: `/api/bookmarks/list/`
+- Content-Type: `application/json` or `application/x-www-form-urlencoded` or `multipart/form-data`
+- x-api-key: <USER_API_KEY>
+
+### Response
+
+Array of claim details
+
+### Description
+
+List all bookmarked claims by current user
 
 ## Up Votes
 
@@ -355,6 +402,22 @@ Response status
 ### Description
 
 Votes down given claim
+
+## Logout
+
+### Usage
+
+- URL: `/api/logout/`
+- Content-Type: `application/json` or `application/x-www-form-urlencoded` or `multipart/form-data`
+- x-api-key: <USER_API_KEY>
+
+### Response
+
+No Response
+
+### Description
+
+Delete current api key and logout
 
 # Page Links
 

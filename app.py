@@ -153,7 +153,9 @@ def search_api():
         if (data.get('keyword', "") == ""):
             claims = list()
             for _ in db.get('claims'):
-                claims.append(Claim.parse(_).get())
+                claim = Claim.parse(_)
+                claim.attachment = claim.attachment.split(',')
+                claims.append(claim.get())
 
             # Sort by vote from biggest
             sorted(claims, key=lambda x: (
@@ -164,7 +166,9 @@ def search_api():
         # If has keywords, get claims from database and build array dictionary
         claims = {}
         for _ in db.get('claims'):
-            claims = SearchEngine.addDataToDictionary(Claim.parse(_).get(), claims)
+            claim = Claim.parse(_)
+            claim.attachment = claim.attachment.split(',')
+            claims = SearchEngine.addDataToDictionary(claim.get(), claims)
 
         # Cut data from given index and limit
         begin = data.get('begin', 0)
@@ -370,6 +374,7 @@ def get_claim():
             claims = db.get_where('claims', {'id': data['id']})
             if (len(claims) > 0):
                 claim: Claim = Claim.parse(claims[0])
+                claim.attachment = claim.attachment.split(',')
                 return api_res('success', '', 'Claim', 0, 'claim', claim.get())
             else:
                 return abort(406)
@@ -697,8 +702,10 @@ def my_claim():
             request.headers.get('x-api-key', None), db)
         query_result = db.get_where('claims', {'author_id': current_user.id})
         claims_proses = list()
-        for claim in query_result:
-            claims_proses.append(Claim.parse(claim).get())
+        for _ in query_result:
+            claim = Claim.parse(_)
+            claim.attachment = claim.attachment.split(',')
+            claims_proses.append(claim.get())
         return api_res('success', "", 'My Claim', len(claims_proses), 'claim', claims_proses[start:start+limit])
     else:
         return invalidRequest()
