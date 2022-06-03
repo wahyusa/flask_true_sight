@@ -98,7 +98,7 @@ def deletefromresource(destination: str) -> bool:
         if os.path.exists(os.path.dirname(destination)):
             os.remove(destination)
         else:
-            logger.err('File not found "' + full_path + '"')
+            logger.error("Delete Resource",'File not found "' + full_path + '"')
     else:
         full_path = "gs://{}/uploads/{}".format(
             os.getenv('BUCKET_NAME'), destination)

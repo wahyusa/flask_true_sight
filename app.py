@@ -8,7 +8,7 @@ from datetime import datetime
 import gcloud as gcs
 import os
 import magic
-
+import urllib.parse as urlparse
 
 # from google.appengine.api import app_identity
 
@@ -231,8 +231,8 @@ def get_resources(path):
             
         if int(os.environ.get('LOCAL', 0)) == 1:
             # Build full path
-            full_path = os.path.join(os.getcwd(), os.pathsep.join(paths_split))
-
+            full_path = os.path.join(os.getcwd(), os.path.sep.join(paths_split))
+            logger.debug('Parh: ' + full_path)
             # Only if file exists
             if os.path.exists(full_path) and os.path.isfile(full_path):
                 # Open file and read all bytes
@@ -282,14 +282,10 @@ def get_resources(path):
                 return abort(404)
     elif dirName == 'avatar':
         # Get Current user depends on api key
-        current_user: User = getUserFromApiKey(
-            request.headers.get('x-api-key', None), db)
-        logger.debug(
-            f"User {current_user.username}({str(current_user.id)}) access avatar.")
         if int(os.environ.get('LOCAL', 0)) == 1:
             # Build full path
             full_path = os.path.join(
-                os.getcwd(), 'avatar', str(current_user.id), os.pathsep.join(paths_split[1:]))
+                os.getcwd(), os.path.sep.join(paths_split))
 
             # Only if file exists
             if os.path.exists(full_path) and os.path.isfile(full_path):
@@ -408,13 +404,14 @@ def set_profile():
                     if '.' in avatar.filename:
                         uploader(avatar.stream.read(), 'avatar/' + str(current_user.id) + "." + avatar.filename.split('.')[-1])
                         current_user.avatar = os.getenv('BASE_URL') + 'uploads/avatar/' + str(current_user.id) + "." + avatar.filename.split('.')[-1]
+                            
                     else:
                         raise Exception('Extension not allowed')
                 except Exception as ex:
-                    return api_res('failed', str(ex), 'Profile', 0, 'avatar', [])
+                    return api_res('failed', str(ex), 'Set Profile', 0, 'avatar', [])
             db.update_where('users', current_user.get(),
                 {'id': current_user.id})
-            return api_res('success', "", 'Profile', 0, '', [])
+            return api_res('success', "", 'Set Profile', 0, '', [])
         else:
             return invalidUserInput('Set Profile')
     else:
@@ -440,8 +437,11 @@ def set_claim():
                 if  len(request.files) > 0:
                     for last_attachment in claim.attachment.split(','):
                         try:
-                            path_to_file = last_attachment[len(os.getenv('BASE_URL')):]
-                            deletefromresource(path_to_file)
+                            path_to_file = urlparse.unquote(last_attachment[len(os.getenv('BASE_URL')):]).split('/')
+                            if int(os.environ.get("LOCAL", 0)) == 1:
+                                deletefromresource(os.path.sep.join(path_to_file[1:]))
+                            else:
+                                deletefromresource('/'.join(path_to_file[1:]))
                         except Exception as ex:
                             logger.debug(ex)
                 for _, file in request.files.items():
@@ -451,9 +451,9 @@ def set_claim():
                     try:
                         # Upload to storage
                         uploader(file.stream.read(), 'claim/' +
-                                 str(claim.id) + "/" + file.filename)
-                        attachmentUrl.append(os.getenv('BASE_URL') + 'claim/' +
-                                             str(claim.id) + "/" + file.filename)
+                                 str(claim.id) + "/" + _ + '_' + file.filename)
+                        attachmentUrl.append(os.getenv('BASE_URL') + 'uploads/claim/' +
+                                             str(claim.id) + "/" + urlparse.quote( _ + '_' + file.filename))
                     except Exception as ex:
                         return api_res('failed', str(ex), 'Attachment', 0, file.filename, [])
 
@@ -462,7 +462,7 @@ def set_claim():
                     claim.attachment = ','.join(attachmentUrl)
 
                 db.update_where('claims', claim.get(), {'id': claim.id})
-                return api_res('success', "", 'Claim', 0, '', [])
+                return api_res('success', "", 'Set Claim', 0, '', [])
             else:
                 return abort(403)
         else:
@@ -496,22 +496,48 @@ def create_claim():
             for _, file in request.files.items():
                 # Allowed max 5 MiB
                 if file.content_length > 5242880:
-                    return api_res('failed', 'file to large', 'Attachment', 0, file.name, [])
+                    return api_res('failed', 'file to large', 'Attachment', 0, file.filename, [])
                 try:
                     uploader(file.stream.read(), 'claim/' +
-                             str(claim.id) + "/" + file.name)
-                    attachmentUrl.append(os.getenv('BASE_URL') + 'claim/' +
-                                         str(claim.id) + "/" + file.name)
+                             str(claim.id) + "/" + _ + '_' + file.filename)
+                    attachmentUrl.append(os.getenv('BASE_URL') + 'uploads/claim/' +
+                                         str(claim.id) + "/" + urlparse.quote(_ + '_' + file.filename))
                 except Exception as ex:
-                    return api_res('failed', str(ex), 'Attachment', 0, file.name, [])
+                    return api_res('failed', str(ex), 'Attachment', 0, file.filename, [])
 
             if len(attachmentUrl) > 0:
                 claim.attachment = ','.join(attachmentUrl)
 
             db.insert('claims', claim.get())
-            return api_res('success', "", 'Claim', 0, '', [])
+            return api_res('success', "", 'Create Claim', 0, '', [])
         else:
             return invalidUserInput('Create Claim')
+    else:
+        return invalidRequest()
+
+@app.route("/api/delete/claim/", methods=['POST'])
+def delete_claim():
+    if checkValidAPIrequest(request, db):
+        data: dict = convert_request(request)
+        if all(x in data for x in ['id']):
+            current_user: User = getUserFromApiKey(
+                request.headers.get('x-api-key', None), db)
+            claim = Claim.parse(db.get_where(
+                'claims', {'id': data.get('id')})[0])
+            if claim.author_id == current_user.id:
+                if not claim.attachment is None:
+                    for last_attachment in claim.attachment.split(','):
+                        try:
+                            path_to_file = last_attachment[len(os.getenv('BASE_URL')):]
+                            deletefromresource(path_to_file)
+                        except Exception as ex:
+                            logger.debug(ex)
+                db.delete('claims', {'id': claim.id})
+                return api_res('success', "", 'Delete Claim', 0, '', [])
+            else:
+                return abort(403)
+        else:
+            return invalidUserInput('Remove Claim')
     else:
         return invalidRequest()
 
