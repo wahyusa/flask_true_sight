@@ -1,7 +1,8 @@
+from crypt import methods
 from werkzeug.routing import BaseConverter
 from helper import *
 from dotenv import load_dotenv
-from flask import Flask, request, abort, json
+from flask import Flask, request, abort
 from flask_bcrypt import Bcrypt
 from database import Database
 from datetime import datetime
@@ -9,6 +10,7 @@ import gcloud as gcs
 import os
 import magic
 import urllib.parse as urlparse
+import email_auth
 
 # from google.appengine.api import app_identity
 
@@ -97,7 +99,7 @@ def auth():
                         return api_res('success', '', 'Auth', 0, 'ApiKey', {'api_key':api_key, 'user': user.get()})
 
             # Return failed if no matches condition
-            return api_res('failed', 'Wrong email or password', 'Auth', 0, 'ApiKey', [])
+            return api_res('failed', 'Wrong email or password', 'Auth', 0, 'ApiKey', '')
         else:
             # Return if no needed field in request
             return invalidUserInput('Auth')
@@ -113,11 +115,14 @@ def reqistration():
         # Validate input
         if not all(x in data for x in ['username', 'email', 'password']):
             return invalidUserInput('Registration')
-
+        
+        if len(data.get('new_password')) < 8:
+            return api_res('failed', 'Password too short', 'Reg', 0, '', '')
+        
         # Return failed if username is already use
         if len(db.get_where(
                 'users', {'username': data.get('username', None)})) > 0:
-            return api_res('failed', 'Username already exist', 'Reg', 0, '', [])
+            return api_res('failed', 'Username already exist', 'Reg', 0, '', '')
 
         # Insert new user into database
         db.insert('users', User().set(
@@ -404,7 +409,7 @@ def set_profile():
                 avatar = request.files.get('avatar')
                 # Allowed max 2 MiB
                 if avatar.content_length > 2097152:
-                    return api_res('failed', 'File size is too big', 'Profile', 0, 'avatar', [])
+                    return api_res('failed', 'File size is too big', 'Profile', 0, 'avatar', '')
                 try:
                     if '.' in avatar.filename:
                         uploader(avatar.stream.read(), 'avatar/' + str(current_user.id) + "." + avatar.filename.split('.')[-1])
@@ -413,10 +418,10 @@ def set_profile():
                     else:
                         raise Exception('Extension not allowed')
                 except Exception as ex:
-                    return api_res('failed', str(ex), 'Set Profile', 0, 'avatar', [])
+                    return api_res('failed', str(ex), 'Set Profile', 0, 'avatar', '')
             db.update_where('users', current_user.get(),
                 {'id': current_user.id})
-            return api_res('success', "", 'Set Profile', 0, '', [])
+            return api_res('success', "", 'Set Profile', 0, '', '')
         else:
             return invalidUserInput('Set Profile')
     else:
@@ -452,22 +457,23 @@ def set_claim():
                 for _, file in request.files.items():
                     # Allowed max 5 MiB
                     if file.content_length > 5242880:
-                        return api_res('failed', 'File size is too big', 'Attachment', 0, file.filename, [])
+                        return api_res('failed', 'File size is too big', 'Attachment', 0, file.filename, '')
                     try:
                         # Upload to storage
-                        uploader(file.stream.read(), 'claim/' +
-                                 str(claim.id) + "/" + _ + '_' + file.filename)
-                        attachmentUrl.append(os.getenv('BASE_URL') + 'uploads/claim/' +
-                                             str(claim.id) + "/" + urlparse.quote( _ + '_' + file.filename))
+                        if not file.content_length == 0:
+                            uploader(file.stream.read(), 'claim/' +
+                                    str(claim.id) + "/" + _ + '_' + file.filename)
+                            attachmentUrl.append(os.getenv('BASE_URL') + 'uploads/claim/' +
+                                                str(claim.id) + "/" + urlparse.quote( _ + '_' + file.filename))
                     except Exception as ex:
-                        return api_res('failed', str(ex), 'Attachment', 0, file.filename, [])
+                        return api_res('failed', str(ex), 'Attachment', 0, file.filename, '')
 
                 # Add to claim attachment
                 if len(attachmentUrl) > 0:
                     claim.attachment = ','.join(attachmentUrl)
 
                 db.update_where('claims', claim.get(), {'id': claim.id})
-                return api_res('success', "", 'Set Claim', 0, '', [])
+                return api_res('success', "", 'Set Claim', 0, '', '')
             else:
                 return abort(403)
         else:
@@ -493,7 +499,7 @@ def create_claim():
                 attachment="",
                 comment_id=0,
                 date_created=datetime.now().timestamp(),
-                fake=data.get('fake'),
+                fake=int(data.get('fake')) == 1,
                 url=data.get('url', '')
             )
 
@@ -501,20 +507,22 @@ def create_claim():
             for _, file in request.files.items():
                 # Allowed max 5 MiB
                 if file.content_length > 5242880:
-                    return api_res('failed', 'file to large', 'Attachment', 0, file.filename, [])
+                    return api_res('failed', 'file to large', 'Attachment', 0, file.filename, '')
                 try:
-                    uploader(file.stream.read(), 'claim/' +
-                             str(claim.id) + "/" + _ + '_' + file.filename)
-                    attachmentUrl.append(os.getenv('BASE_URL') + 'uploads/claim/' +
-                                         str(claim.id) + "/" + urlparse.quote(_ + '_' + file.filename))
+                    # Upload to storage
+                    if not file.content_length == 0:
+                        uploader(file.stream.read(), 'claim/' +
+                                str(claim.id) + "/" + _ + '_' + file.filename)
+                        attachmentUrl.append(os.getenv('BASE_URL') + 'uploads/claim/' +
+                                            str(claim.id) + "/" + urlparse.quote( _ + '_' + file.filename))
                 except Exception as ex:
-                    return api_res('failed', str(ex), 'Attachment', 0, file.filename, [])
+                    return api_res('failed', str(ex), 'Attachment', 0, file.filename, '')
 
             if len(attachmentUrl) > 0:
                 claim.attachment = ','.join(attachmentUrl)
 
             db.insert('claims', claim.get())
-            return api_res('success', "", 'Create Claim', 0, '', [])
+            return api_res('success', "", 'Create Claim', 0, '', '')
         else:
             return invalidUserInput('Create Claim')
     else:
@@ -538,7 +546,7 @@ def delete_claim():
                         except Exception as ex:
                             logger.debug(ex)
                 db.delete('claims', {'id': claim.id})
-                return api_res('success', "", 'Delete Claim', 0, '', [])
+                return api_res('success', "", 'Delete Claim', 0, '', '')
             else:
                 return abort(403)
         else:
@@ -557,14 +565,14 @@ def bookmark_add():
             ','))
             # Check if present, if not then add
             if int(data.get('id')) in bookmarks:
-                return api_res('success', "Already bookmarks", 'Bookmark', 0, '', [])
+                return api_res('success', "Already bookmarks", 'Bookmark', 0, '', '')
             else:
                 bookmarks.append(int(data.get('id')))
             # Change total vote for claim
             current_user.bookmarks = ','.join([str(x) for x in bookmarks]) if len(bookmarks) > 0 else None
             # Update database
             db.update_where('users', current_user.get(), {'id': current_user.id})
-            return api_res('success', "Bookmark added", 'Bookmark', 0, '', [])
+            return api_res('success', "Bookmark added", 'Bookmark', 0, '', '')
         else:
             return invalidUserInput('Add bookmarks')
     else:
@@ -583,13 +591,13 @@ def bookmark_remove():
             if int(data.get('id')) in bookmarks:
                 bookmarks.remove(int(data.get('id')))
             else:
-                return api_res('success', "Claim is not bookmarked", 'Bookmark', 0, '', [])
+                return api_res('success', "Claim is not bookmarked", 'Bookmark', 0, '', '')
             
             # Change total vote for claim
             current_user.bookmarks = ','.join([str(x) for x in bookmarks]) if len(bookmarks) > 0 else None
             # Update database
             db.update_where('users', current_user.get(), {'id': current_user.id})
-            return api_res('success', "Bookmark removed", 'Bookmark', 0, '', [])
+            return api_res('success', "Bookmark removed", 'Bookmark', 0, '', '')
         else:
             return invalidUserInput('Remove bookmark')
     else:
@@ -632,7 +640,7 @@ def votes_up():
                 for i, vote in enumerate(votes):
                     if vote.get('id') == int(data.get('id')):
                         if vote['value'] == 1:
-                            return api_res('success', "Claim already vote up", 'Votes', 0, '', [])
+                            return api_res('success', "Claim already vote up", 'Votes', 0, '', '')
                         elif vote['value'] == -1:
                             del votes[i]
                             break
@@ -646,9 +654,9 @@ def votes_up():
                 # Update database
                 db.update_where('users', current_user.get(), {'id': current_user.id})
                 db.update_where('claims', selected_claim.get(), {'id': selected_claim.id})
-                return api_res('success', "Votes added", 'Votes', 0, '', [])
+                return api_res('success', "Votes added", 'Votes', 0, '', '')
             else:
-                    return api_res('failed', "Claim with given id doesn't exist", 'Votes', 0, '', [])
+                    return api_res('failed', "Claim with given id doesn't exist", 'Votes', 0, '', '')
         else:
             return invalidUserInput('Add votes')
     else:
@@ -673,7 +681,7 @@ def votes_down():
                             del votes[i]
                             break
                         elif vote['value'] == -1:
-                            return api_res('success', "Claim already vote down", 'Votes', 0, '', [])
+                            return api_res('success', "Claim already vote down", 'Votes', 0, '', '')
                 else:
                     id = int(data.get('id'))
                     votes.append({'id': id, 'value': -1})
@@ -684,9 +692,9 @@ def votes_down():
                 # Update database
                 db.update_where('users', current_user.get(), {'id': current_user.id})
                 db.update_where('claims', selected_claim.get(), {'id': selected_claim.id})
-                return api_res('success', "Votes reduced", 'Votes', 0, '', [])
+                return api_res('success', "Votes reduced", 'Votes', 0, '', '')
             else:
-                return api_res('failed', "Claim with given id doesn't exist", 'Votes', 0, '', [])
+                return api_res('failed', "Claim with given id doesn't exist", 'Votes', 0, '', '')
         else:
             return invalidUserInput('Down votes')
     else:
@@ -735,8 +743,75 @@ def end_session():
     
 @app.route("/api/auth/reset/", methods=['POST'])
 def auth_reset():
-    return abort(423)
+    data: dict = convert_request(request)
+    if all(x in data for x in ['email']):
+        query_result = db.get_where('users', {'email': data.get('email')})
+        if len(query_result) > 0:
+            user = User.parse(query_result[0])
+            query_result = db.get_where('reset_password', {'user_id': user.id})
+            if len(query_result) > 0:
+                if not (datetime.now().timestamp() * 100000) - (query_result[0][4] * 100000) > 30:
+                    return api_res('failed', "Please wait", 'Reset Password', 0, 'password', '')
+                
+            verification_code = generate_verification_code(6)
+            reset_key = generate_key(24)
+            email_auth.sendVerificationCode(verification_code, data.get('email'))
+            db.insert('reset_password', {'id': None, 'user_id': user.id, 'reset_key': reset_key, 'verification_code': verification_code, 'date_created': datetime.now().timestamp()})
+            return api_res('success', "Please Verify", 'Reset Password', 0, 'user.id', user.id)   
+        else:
+            return api_res('failed', "User not found", 'Reset Password', 0, 'password', '')
+    else:
+        return invalidUserInput('Reset Password')
+    
+@app.route("/api/auth/confirm/", methods=['POST'])
+def auth_reset():
+    data: dict = convert_request(request)
+    if all(x in data for x in ['user_id', 'verification_code']):
+        query_result = db.get_where('reset_password', {'user_id': data.get('user_id')})
+        if len(query_result) > 0:
+            if (datetime.now().timestamp() * 100000) - (query_result[0][4] * 100000) > 30:
+                db.delete('reset_password', {'id': query_result[0][0]})
+                return api_res('failed', "Reset timeout", 'Reset Password', 0, 'password', '')
+                
+            if str(query_result[0][4]) == str(data.get('verification_code')):
+                return api_res('success', "Verified, you can change your password", 'Reset Password', 0, 'reset_key', query_result[0][2])
+        else:
+            return api_res('failed', "The user is not resetting the password", 'Reset Password', 0, 'password', '')
+    elif all(x in data for x in ['user_id', 'reset_key', 'new_password']):
+        query_result = db.get_where('reset_password', {'user_id': data.get('user_id')})
+        if len(query_result) > 0:
+            if str(query_result[0][2]) == str(data.get('reset_key')):
+                db.delete('reset_password', {'id': query_result[0][0]})
+                user = User.parse(db.get_where('users', {'id': data.get('user_id')}))
+                user.password = bcrypt.generate_password_hash(data.get('new_password'))
+                db.update_where('users', user.get(), {'id': data.get('user_id')})
+                return api_res('success', "Your password changed", 'Reset Password', 0, 'reset_key', '')
+        else:
+            return api_res('failed', "The user is not resetting the password", 'Reset Password', 0, 'password', '')
+    else:
+        return invalidUserInput('Reset Password')
 
+@app.route("/api/set/password/", methods=['POST'])
+def change_password():
+    data: dict = convert_request(request)
+    if checkValidAPIrequest(request, db):
+        if all(x in data for x in ['current_password', 'new_password']):
+            current_user: User = getUserFromApiKey(
+                request.headers.get('x-api-key', None), db)
+            if bcrypt.check_password_hash(current_user.password, data['current_password']):
+                if len(data.get('new_password')) >= 8:
+                    current_user.password = bcrypt.generate_password_hash(data.get('new_password')),
+                    db.update_where('users', current_user.get(), {'id': current_user.id} )
+                    return api_res('success', "Password Changed", 'Change Password', 0, 'password', '')   
+                else:
+                    return api_res('failed', "Password too short", 'Change Password', 0, 'password', '')   
+            else:
+                return api_res('failed', "Wrong current password", 'Change Password', 0, 'password', '')
+        else:
+            return invalidUserInput('Change Password')
+    else:
+        invalidRequest()
+        
 if __name__ == '__main__':
     server_port = os.environ.get('FLASK_RUN_PORT', '8080')
     app.run(debug=False, port=server_port, host='0.0.0.0')

@@ -186,3 +186,7 @@ def getUserFromApiKey(api_key: str, db) -> User:
 def generate_key(length):
     """Generate random alfanum with given length"""
     return ''.join(random.choice(string.ascii_lowercase + string.digits) for _ in range(length))
+
+def generate_verification_code(length):
+    """Generate random alfanum with given length"""
+    return ''.join(random.choice(string.digits + string.digits) for _ in range(length))
