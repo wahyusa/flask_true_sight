@@ -407,16 +407,18 @@ def set_profile():
                     current_user.bookmarks = data.get('bookmarks')
             if 'avatar' in request.files:
                 avatar = request.files.get('avatar')
-                # Allowed max 2 MiB
-                if avatar.content_length > 2097152:
-                    return api_res('failed', 'File size is too big', 'Profile', 0, 'avatar', '')
                 try:
-                    if '.' in avatar.filename:
-                        uploader(avatar.stream.read(), 'avatar/' + str(current_user.id) + "." + avatar.filename.split('.')[-1])
-                        current_user.avatar = os.getenv('BASE_URL') + 'uploads/avatar/' + str(current_user.id) + "." + avatar.filename.split('.')[-1]
-                            
-                    else:
-                        raise Exception('Extension not allowed')
+                    if not avatar.content_type is None:
+                        # Allowed max 2 MiB
+                        blob = avatar.stream.read()
+                        if len(blob) > 2097152:
+                            return api_res('failed', 'File size is too big', 'Profile', 0, 'avatar', '')
+                        if '.' in avatar.filename:
+                            uploader(blob, 'avatar/' + str(current_user.id) + "." + avatar.filename.split('.')[-1])
+                            current_user.avatar = os.getenv('BASE_URL') + 'uploads/avatar/' + str(current_user.id) + "." + avatar.filename.split('.')[-1]
+                                
+                        else:
+                            raise Exception('Extension not allowed')
                 except Exception as ex:
                     return api_res('failed', str(ex), 'Set Profile', 0, 'avatar', '')
             db.update_where('users', current_user.get(),
@@ -455,13 +457,14 @@ def set_claim():
                         except Exception as ex:
                             logger.debug(ex)
                 for _, file in request.files.items():
-                    # Allowed max 5 MiB
-                    if file.content_length > 5242880:
-                        return api_res('failed', 'File size is too big', 'Attachment', 0, file.filename, '')
                     try:
+                        # Allowed max 5 MiB
+                        blob = file.stream.read()
+                        if len(blob) > 5242880:
+                            return api_res('failed', 'file to large', 'Attachment', 0, file.filename, '')
                         # Upload to storage
-                        if not file.content_length == 0:
-                            uploader(file.stream.read(), 'claim/' +
+                        if not file.content_type is None:
+                            uploader(blob, 'claim/' +
                                     str(claim.id) + "/" + _ + '_' + file.filename)
                             attachmentUrl.append(os.getenv('BASE_URL') + 'uploads/claim/' +
                                                 str(claim.id) + "/" + urlparse.quote( _ + '_' + file.filename))
@@ -505,13 +508,14 @@ def create_claim():
 
             attachmentUrl = list()
             for _, file in request.files.items():
-                # Allowed max 5 MiB
-                if file.content_length > 5242880:
-                    return api_res('failed', 'file to large', 'Attachment', 0, file.filename, '')
                 try:
                     # Upload to storage
-                    if not file.content_length == 0:
-                        uploader(file.stream.read(), 'claim/' +
+                    if not file.content_type is None:
+                        # Allowed max 5 MiB
+                        blob = file.stream.read()
+                        if len(blob) > 5242880:
+                            return api_res('failed', 'file to large', 'Attachment', 0, file.filename, '')
+                        uploader(blob, 'claim/' +
                                 str(claim.id) + "/" + _ + '_' + file.filename)
                         attachmentUrl.append(os.getenv('BASE_URL') + 'uploads/claim/' +
                                             str(claim.id) + "/" + urlparse.quote( _ + '_' + file.filename))
@@ -535,8 +539,13 @@ def delete_claim():
         if all(x in data for x in ['id']):
             current_user: User = getUserFromApiKey(
                 request.headers.get('x-api-key', None), db)
-            claim = Claim.parse(db.get_where(
-                'claims', {'id': data.get('id')})[0])
+            claims = db.get_where(
+                'claims', {'id': data.get('id')})
+            claim = None
+            if len(claims) > 0:
+                claim = Claim.parse(claims[0])
+            else:
+                return api_res('failed', "Claim doesn't exist", 'Delete Claim', 0, '', '')
             if claim.author_id == current_user.id:
                 if not claim.attachment is None:
                     for last_attachment in claim.attachment.split(','):
