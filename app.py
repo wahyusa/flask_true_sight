@@ -764,7 +764,7 @@ def auth_reset():
         return invalidUserInput('Reset Password')
     
 @app.route("/api/auth/confirm/", methods=['POST'])
-def auth_reset():
+def auth_confirm():
     data: dict = convert_request(request)
     if all(x in data for x in ['user_id', 'verification_code']):
         query_result = db.get_where('reset_password', {'user_id': data.get('user_id')})
