@@ -750,10 +750,10 @@ def auth_reset():
             user = User.parse(query_result[0])
             query_result = db.get_where('reset_password', {'user_id': user.id})
             if len(query_result) > 0:
-                if not (datetime.now().timestamp() * 100000) - (query_result[0][4] * 100000) > 30:
+                if not int(datetime.now().timestamp()) - int(query_result[0][4]) > 30:
                     return api_res('failed', "Please wait", 'Reset Password', 0, 'password', '')
                 
-            verification_code = generate_verification_code(6)
+            verification_code = str(generate_verification_code(6))
             reset_key = generate_key(24)
             email_auth.sendVerificationCode(verification_code, data.get('email'))
             db.insert('reset_password', {'id': None, 'user_id': user.id, 'reset_key': reset_key, 'verification_code': verification_code, 'date_created': datetime.now().timestamp()})
@@ -768,13 +768,15 @@ def auth_confirm():
     data: dict = convert_request(request)
     if all(x in data for x in ['user_id', 'verification_code']):
         query_result = db.get_where('reset_password', {'user_id': data.get('user_id')})
-        if len(query_result) > 0:
-            if (datetime.now().timestamp() * 100000) - (query_result[0][4] * 100000) > 30:
+        if len(query_result) > 0:          
+            if int(datetime.now().timestamp()) - int(query_result[0][4]) > 30:
                 db.delete('reset_password', {'id': query_result[0][0]})
                 return api_res('failed', "Reset timeout", 'Reset Password', 0, 'password', '')
                 
-            if str(query_result[0][4]) == str(data.get('verification_code')):
+            if str(query_result[0][3]) == str(data.get('verification_code')):
                 return api_res('success', "Verified, you can change your password", 'Reset Password', 0, 'reset_key', query_result[0][2])
+            else:
+                return api_res('failed', "Wrong verification code", 'Reset Password', 0, 'password', '')
         else:
             return api_res('failed', "The user is not resetting the password", 'Reset Password', 0, 'password', '')
     elif all(x in data for x in ['user_id', 'reset_key', 'new_password']):
@@ -782,7 +784,7 @@ def auth_confirm():
         if len(query_result) > 0:
             if str(query_result[0][2]) == str(data.get('reset_key')):
                 db.delete('reset_password', {'id': query_result[0][0]})
-                user = User.parse(db.get_where('users', {'id': data.get('user_id')}))
+                user = User.parse(db.get_where('users', {'id': data.get('user_id')})[0])
                 user.password = bcrypt.generate_password_hash(data.get('new_password'))
                 db.update_where('users', user.get(), {'id': data.get('user_id')})
                 return api_res('success', "Your password changed", 'Reset Password', 0, 'reset_key', '')
@@ -810,7 +812,7 @@ def change_password():
         else:
             return invalidUserInput('Change Password')
     else:
-        invalidRequest()
+        return invalidRequest()
         
 if __name__ == '__main__':
     server_port = os.environ.get('FLASK_RUN_PORT', '8080')
