@@ -116,7 +116,7 @@ def reqistration():
         if not all(x in data for x in ['username', 'email', 'password']):
             return invalidUserInput('Registration')
         
-        if len(data.get('new_password')) < 8:
+        if len(data.get('password')) < 8:
             return api_res('failed', 'Password too short', 'Reg', 0, '', '')
         
         # Return failed if username is already use
