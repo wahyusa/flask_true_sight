@@ -17,7 +17,7 @@ class User(Model):
         self.date_created = date_created
         self.avatar = avatar
         self.apioauth = apioauth
-        self.verified = verified
+        self.verified = int(verified)
         self.votes = votes
         self.bookmarks = bookmarks
         return self
@@ -37,11 +37,6 @@ class User(Model):
         user = User().set(data[0], data[1], data[2], data[3], data[5], data[6], data[7],
                           int(data[8]) == 1, data[4], data[9], data[10])
         return user
-
-    def get(self):
-        data = self.__dict__
-        data['verified'] = 1 if data['verified'] else 0
-        return data
 
     def fromDict(data: dict) -> User:
         user = User()
