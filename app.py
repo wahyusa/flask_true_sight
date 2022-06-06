@@ -182,7 +182,7 @@ def search_api():
         if len(claims.values()) > 0:
             # Search data by given keywords
             result = SearchEngine.search_from_dict(data['keyword'], claims, [
-                'title', 'description'])
+                'title', 'description'], 0)
             return api_res('success', '', 'Search', len(result), data['keyword'], result[begin:begin+limit])
         else:
             # Return nothing if empty
@@ -788,17 +788,6 @@ def auth_confirm():
                 return api_res('failed', "Wrong verification code", 'Reset Password', 0, 'password', '')
         else:
             return api_res('failed', "The user is not resetting the password", 'Reset Password', 0, 'password', '')
-    elif all(x in data for x in ['user_id', 'reset_key', 'new_password']):
-        query_result = db.get_where('reset_password', {'user_id': data.get('user_id')})
-        if len(query_result) > 0:
-            if str(query_result[0][2]) == str(data.get('reset_key')):
-                db.delete('reset_password', {'id': query_result[0][0]})
-                user = User.parse(db.get_where('users', {'id': data.get('user_id')})[0])
-                user.password = bcrypt.generate_password_hash(data.get('new_password'))
-                db.update_where('users', user.get(), {'id': data.get('user_id')})
-                return api_res('success', "Your password changed", 'Reset Password', 0, 'reset_key', '')
-        else:
-            return api_res('failed', "The user is not resetting the password", 'Reset Password', 0, 'password', '')
     else:
         return invalidUserInput('Reset Password')
 
@@ -821,7 +810,18 @@ def change_password():
         else:
             return invalidUserInput('Change Password')
     else:
-        return invalidRequest()
+        if all(x in data for x in ['reset_key', 'new_password']):
+            query_result = db.get_where('reset_password', {'reset_key': data.get('reset_key')})
+            if len(query_result) > 0:
+                db.delete('reset_password', {'id': query_result[0][0]})
+                user = User.parse(db.get_where('users', {'id': data.get('user_id')})[0])
+                user.password = bcrypt.generate_password_hash(data.get('new_password'))
+                db.update_where('users', user.get(), {'id': data.get('user_id')})
+                return api_res('success', "Your password changed", 'Reset Password', 0, 'reset_key', '')
+            else:
+                return api_res('failed', "The user is not resetting the password", 'Reset Password', 0, 'password', '')
+        else:
+            return invalidRequest()
         
 if __name__ == '__main__':
     server_port = os.environ.get('FLASK_RUN_PORT', '8080')
