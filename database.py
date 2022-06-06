@@ -109,7 +109,7 @@ class Database:
                     query, c.rowcount))
         except Exception as ex:
             logger.error("MYSQL UPDATE", ex)
-        return ()
+        return c.lastrowid
 
     def query(self, query: str):
         try:

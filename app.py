@@ -505,6 +505,10 @@ def create_claim():
                 fake=int(data.get('fake')) == 1,
                 url=data.get('url', '')
             )
+            lastrowid = db.insert('claims', claim.get())
+            claim.id = lastrowid
+            
+            logger.debug('LAST ROW ID:' + str(lastrowid))
 
             attachmentUrl = list()
             for _, file in request.files.items():
@@ -516,16 +520,16 @@ def create_claim():
                         if len(blob) > 5242880:
                             return api_res('failed', 'file to large', 'Attachment', 0, file.filename, '')
                         uploader(blob, 'claim/' +
-                                str(claim.id) + "/" + _ + '_' + file.filename)
+                                str(lastrowid) + "/" + _ + '_' + file.filename)
                         attachmentUrl.append(os.getenv('BASE_URL') + 'uploads/claim/' +
-                                            str(claim.id) + "/" + urlparse.quote( _ + '_' + file.filename))
+                                            str(lastrowid) + "/" + urlparse.quote( _ + '_' + file.filename))
                 except Exception as ex:
                     return api_res('failed', str(ex), 'Attachment', 0, file.filename, '')
-
+                
             if len(attachmentUrl) > 0:
                 claim.attachment = ','.join(attachmentUrl)
 
-            db.insert('claims', claim.get())
+            db.update_where('claims', claim.get(), {'id': lastrowid})
             return api_res('success', "", 'Create Claim', 0, '', '')
         else:
             return invalidUserInput('Create Claim')
