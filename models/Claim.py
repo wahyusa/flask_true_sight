@@ -7,14 +7,14 @@ class Claim(Model):
         self.set(None, '', '', False, 0, '', 0, '')
         super().__init__()
 
-    def set(self, id: int, title: str, description: str, fake: bool, author_id: int, author_username:str, date_created: int, attachment: str, url: str = None, upvote: int = 0, downvote: int = 0, num_click: int = 0, verified_by: int = None, comment_id: int = None) -> Claim:
+    def set(self, id: int, title: str, description: str, fake: bool, author_id: int, author_username:str, date_created: float, attachment: str, url: str = None, upvote: int = 0, downvote: int = 0, num_click: int = 0, verified_by: int = None, comment_id: int = None) -> Claim:
         self.id = id
         self.title = title
         self.description = description
         self.author_username = author_username
         self.fake = fake
         self.author_id = author_id
-        self.date_created = date_created
+        self.date_created = float(date_created)
         self.attachment = attachment
         self.url = url
         self.upvote = upvote

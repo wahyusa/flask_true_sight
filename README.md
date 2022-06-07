@@ -18,6 +18,14 @@ Table Of Contents
   - [List bookmarks](#list-bookmarks)
   - [Up Votes](#up-votes)
   - [Up Votes](#down-votes)
+  - [Get Comments](#get-comments)
+  - [Create Comments](#create-comments)
+  - [Delete Comments](#delete-comments)
+  - [Reset Password by Email](#reset-password-by-email)
+  - [Confirm Verification Code](#confirm-verification-code)
+  - [Reset Password](#reset-password)
+  - [Change Password](#change-password)
+  - [Get API Session](#get-api-session)
   - [Logout](#logout)
 - [Page Links](#page-links)
   - [Claim Resources](#claim-resources)
@@ -64,6 +72,9 @@ User login to get **_Api Key_**.
 ### Response
 
 Give Dictionary of user details
+
+**Error**:
+> `Username already exist` `Invalid username format` `Invalid email format` `Password too short` `Email already exist`
 
 ### Description
 
@@ -147,6 +158,7 @@ Predict claim fake or fact
 ### Response
 
 Dictionary of User Details
+Return null for personal information like email, bookmarks, votes
 
 ```json
 {
@@ -221,7 +233,7 @@ Get claim details by ID
 ### Response
 
 **Error**:
-> _Extension not allowed_, _File already exists_, _File size is too big_
+> _Extension not allowed_,  _File size is too big_, _Email already exist_, _Invalid email format_
 
 ### Description
 
@@ -249,7 +261,7 @@ Set Own Profile Attributes
 ### Response
 
 **Error**:
-> _Extension not allowed_, _File already exists_, _File size is too big_
+> _Extension not allowed_, _File size is too big_
 
 ### Description
 
@@ -274,7 +286,7 @@ Set claim details
 ### Response
 
 **Error**:
-> _Extension not allowed_, _File already exists_, _File size is too big_
+> _Extension not allowed_, _File size is too big_
 
 ### Description
 
@@ -402,6 +414,142 @@ Response status
 ### Description
 
 Votes down given claim
+
+## Get Comments
+
+### Usage
+
+- URL: `/api/get/comments/`
+- Content-Type: `application/json` or `application/x-www-form-urlencoded` or `multipart/form-data`
+- x-api-key: <USER_API_KEY>
+- Fields:
+  - claim_id -> Claim ID
+
+### Response
+
+List of comment
+
+### Description
+
+Get comments for selected claim
+
+## Create Comments
+
+### Usage
+
+- URL: `/api/create/comments/`
+- Content-Type: `application/json` or `application/x-www-form-urlencoded` or `multipart/form-data`
+- x-api-key: <USER_API_KEY>
+- Fields:
+  - claim_id -> Claim ID
+  - text -> Comment Text
+
+### Response
+
+return `Comment.ID`
+
+### Description
+
+Create new comment
+
+## Delete Comments
+
+### Usage
+
+- URL: `/api/delete/comments/`
+- Content-Type: `application/json` or `application/x-www-form-urlencoded` or `multipart/form-data`
+- x-api-key: <USER_API_KEY>
+- Fields:
+  - id -> Comment ID
+
+### Response
+
+**Error**:
+> _User not have permission_
+
+### Description
+
+Delete comment by ID
+
+## Reset Password By Email
+
+### Usage
+
+- URL: `/api/auth/reset/`
+- Content-Type: `application/json` or `application/x-www-form-urlencoded` or `multipart/form-data`
+- Fields:
+  - email -> User email want to reset
+
+### Response
+
+Return `User.ID`
+
+**ERROR**:
+> _User not found_
+
+### Description
+
+Reset password by sent verification code to user email
+
+## Confirm Verification Code
+
+### Usage
+
+- URL: `/api/auth/confirm/`
+- Content-Type: `application/json` or `application/x-www-form-urlencoded` or `multipart/form-data`
+- Fields:
+  - user_id -> User ID who doing verification
+  - verification_code -> Verification code that already sent to user email
+
+### Response
+
+Return 24 digit `reset_key`
+
+**ERROR**:
+> _Wrong verification code_, _Reset timeout_, _The user is not resetting the password_
+
+### Description
+
+Get Reset key to continue to change password
+
+## Reset Password
+
+### Usage
+
+- URL: `/api/set/password/`
+- Content-Type: `application/json` or `application/x-www-form-urlencoded` or `multipart/form-data`
+- Fields:
+  - reset_key -> Reset key given after confirm verification code
+  - new_password -> New password
+
+### Response
+
+**Error**:
+> `This user is not resetting the password`
+
+### Description
+
+Change password by reset key
+
+## Change Password
+
+### Usage
+
+- URL: `/api/set/password/`
+- Content-Type: `application/json` or `application/x-www-form-urlencoded` or `multipart/form-data`
+- x-api-key: <USER_API_KEY>
+- Fields:
+  - current_password -> Reset key given after confirm verification code
+  - new_password -> New password
+
+### Response
+
+**Error**:
+> _Password to short_, _Wrong current password_
+
+### Description
+
+Change password by give current password
 
 ## Logout
 

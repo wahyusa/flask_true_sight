@@ -2,6 +2,7 @@ import os
 from random import Random
 from models.User import User
 from models.Claim import Claim
+from models.Comment import Comment
 from models.ApiSession import ApiSession
 from flask import jsonify
 import gcloud as gcs
@@ -51,10 +52,12 @@ def userToProfileJson(user: User, hidePresonalInformation: bool = True):
         email = None
     else:
         # Send personal information
-        bookmarks = None if user.bookmarks is None else [int(x) for x in user.bookmarks.split(
-            ',')]
-        votes = None if user.votes is None else [voteToJson(x) for x in user.votes.split(
-            ',')]
+        # bookmarks = None if user.bookmarks is None else [int(x) for x in user.bookmarks.split(
+        #     ',')]
+        # votes = None if user.votes is None else [voteToJson(x) for x in user.votes.split(
+        #     ',')]
+        bookmarks = user.bookmarks
+        votes = user.votes
         date_created = user.date_created
         email = user.email
     return {
@@ -65,7 +68,7 @@ def userToProfileJson(user: User, hidePresonalInformation: bool = True):
         "bookmarks": bookmarks,
         "date_created": date_created,
         "avatar": user.avatar,
-        "verified": user.verified,
+        "verified": int(user.verified),
         "votes": votes
     }
 
@@ -186,3 +189,7 @@ def getUserFromApiKey(api_key: str, db) -> User:
 def generate_key(length):
     """Generate random alfanum with given length"""
     return ''.join(random.choice(string.ascii_lowercase + string.digits) for _ in range(length))
+
+def generate_verification_code(length):
+    """Generate random alfanum with given length"""
+    return ''.join(random.choice(string.digits + string.digits) for _ in range(length))
