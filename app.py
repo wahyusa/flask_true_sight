@@ -175,7 +175,7 @@ def search_api():
                 claims.append(claim.get())
 
             # Sort by vote from biggest
-            sorted(claims, key=lambda x: (
+            claims = sorted(claims, key=lambda x: (
                 x['upvote']-x['downvote']), reverse=True)
 
             return api_res('success', '', 'Query', len(claims), "query", claims)
