@@ -415,7 +415,7 @@ def set_profile():
                 if len(db.get_where('users', {'email': data.get('email', None)})) > 0:
                     return api_res('failed', 'Email already exist', 'Set Profile', 0, '', '')
             
-            if re.match(r"^[a-zA-Z0-9.! #$%&'*+/=? ^_`{|}~-]+@[a-zA-Z0-9-]+(?:\. [a-zA-Z0-9-]+)*$",  data.get('email')) is None:
+            if re.match(r"^[a-zA-Z0-9]+(?:(?:[\._-])[a-zA-Z0-9]+)*@[a-zA-Z0-9-]+(?:\.[a-zA-Z0-9-]+)*$",  data.get('email')) is None:
                 return api_res('failed', 'Invalid email format', 'Set Profile', 0, '', '')
             
             current_user.email = data.get('email', current_user.email)
