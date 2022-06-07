@@ -7,6 +7,7 @@ from flask_bcrypt import Bcrypt
 from database import Database
 from datetime import datetime
 import gcloud as gcs
+import re
 import os
 import magic
 import urllib.parse as urlparse
@@ -116,13 +117,24 @@ def reqistration():
         if not all(x in data for x in ['username', 'email', 'password']):
             return invalidUserInput('Registration')
         
+        # Return failed if username is already use
+        if len(db.get_where(
+                'users', {'username': data.get('username')})) > 0:
+            return api_res('failed', 'Username already exist', 'Reg', 0, '', '')
+        
+        if re.match(r"^[\w\.]+$",  data.get('username')) is None:
+            return api_res('failed', 'Invalid username format', 'Reg', 0, '', '')
+        
+        if re.match(r"^[a-zA-Z0-9.! #$%&'*+/=? ^_`{|}~-]+@[a-zA-Z0-9-]+(?:\. [a-zA-Z0-9-]+)*$",  data.get('email')) is None:
+            return api_res('failed', 'Invalid email format', 'Reg', 0, '', '')
+        
         if len(data.get('password')) < 8:
             return api_res('failed', 'Password too short', 'Reg', 0, '', '')
         
-        # Return failed if username is already use
+        # Return failed if email is already use
         if len(db.get_where(
-                'users', {'username': data.get('username', None)})) > 0:
-            return api_res('failed', 'Username already exist', 'Reg', 0, '', '')
+                'users', {'email': data.get('email', None)})) > 0:
+            return api_res('failed', 'Email already exist', 'Reg', 0, '', '')
 
         # Insert new user into database
         db.insert('users', User().set(
@@ -395,11 +407,22 @@ def set_profile():
     if checkValidAPIrequest(request, db, content_type=['multipart/form-data']):
         data: dict = convert_request(request)
         if any(x in data for x in ['email', 'full_name', 'bookmarks']) or 'avatar' in request.files:
+            # Return failed if email is already use
+            if len(db.get_where(
+                    'users', {'email': data.get('email', None)})) > 0:
+                return api_res('failed', 'Email already exist', 'Set Profile', 0, '', '')
+            
+            if re.match(r"^[a-zA-Z0-9.! #$%&'*+/=? ^_`{|}~-]+@[a-zA-Z0-9-]+(?:\. [a-zA-Z0-9-]+)*$",  data.get('email')) is None:
+                return api_res('failed', 'Invalid email format', 'Set Profile', 0, '', '')
+            
+            # Get Current User
             current_user: User = getUserFromApiKey(
                 request.headers.get('x-api-key', None), db)
             current_user.email = data.get('email', current_user.email)
             current_user.full_name = data.get(
                 'full_name', current_user.full_name)
+            
+            
             if 'bookmarks' in data:
                 if isinstance(data.get('bookmarks'), list):
                     current_user.bookmarks = ','.join(str(x) for x in data.get('bookmarks'))
@@ -730,6 +753,73 @@ def my_claim():
         return api_res('success', "", 'My Claim', len(claims_proses), 'claim', claims_proses[start:start+limit])
     else:
         return invalidRequest()
+
+@app.route("/api/get/comments/", methods=['POST'])
+def get_comment():
+    if checkValidAPIrequest(request, db):
+        data: dict = convert_request(request)
+        if any(x in data for x in ['claim_id', 'comment_id']):
+            query_result = db.get_where('comments', {'post_id': data.get('claim_id')})
+            user_result = db.get('users')
+            users = list()
+            for _ in user_result:
+                users.append(User.parse(_))
+            del user_result
+            comments = list()
+            for _ in query_result:
+                comment = Comment.parse(_).get()
+                for user in users:
+                    user:User = user
+                    if comment.get('author_id') == user.id:
+                        comment['username'] = user.username
+                        comment['profile_avatar'] = user.avatar
+                        break
+                else:
+                    comment['username'] = '[deleted]'
+                    comment['avatar'] = ''
+                comments.append(comment)
+            return api_res('success', "", 'Comments', len(comments), 'comments', comments)
+        else:
+            return invalidUserInput('Get Comments')
+    else:
+        return invalidRequest()
+
+@app.route("/api/create/comments/", methods=['POST'])
+def create_comment():
+    if checkValidAPIrequest(request, db):
+        data: dict = convert_request(request)
+        if all(x in data for x in ['claim_id', 'text']):
+            current_user: User = getUserFromApiKey(request.headers.get('x-api-key', None), db)
+            print(str(current_user.get()))
+            new_comment = Comment().set(
+                id=None,
+                author_id=current_user.id,
+                post_id=data.get('claim_id'),
+                comment_text=data.get('text')
+            )
+            new_comment.date_created = datetime.now().timestamp()
+            row_id = db.insert('comments', new_comment.get())
+            return api_res('success', "", 'Comment', 0, 'comment.id', row_id)
+        else:
+            return invalidUserInput('Create Comments')
+    else:
+        return invalidRequest()
+    
+@app.route("/api/delete/comments/", methods=['POST'])
+def delete_comment():
+    if checkValidAPIrequest(request, db):
+        data: dict = convert_request(request)
+        if all(x in data for x in ['id']):
+            current_user: User = getUserFromApiKey(request.headers.get('x-api-key', None), db)
+            if len(db.get_where('comments', {'id': data.get('id'), 'author_id': current_user.id})) > 0:
+                db.delete('comments', {'id': data.get('id')})
+                return api_res('success', "", 'Comment', 0, '', '')
+            else:
+                return api_res('failed', "", 'You doesn\'t have permission to delete this comment', 0, '', '')
+        else:
+            return invalidUserInput('Delete Comments')
+    else:
+        return invalidRequest()
     
 @app.route("/api/session/", methods=['GET', 'POST'])
 def api_session():
@@ -752,7 +842,7 @@ def end_session():
         db.delete('api_session', {'id': api_session.id})
         return ""
     else:
-        return invalidRequest()
+        return api_res('failed', "Api key not exist or already logout", 'Logout', 0, '', '')
     
 @app.route("/api/auth/reset/", methods=['POST'])
 def auth_reset():
@@ -763,10 +853,14 @@ def auth_reset():
             user = User.parse(query_result[0])
             query_result = db.get_where('reset_password', {'user_id': user.id})
             if len(query_result) > 0:
-                if not int(datetime.now().timestamp()) - int(query_result[0][4]) > 30:
-                    return api_res('failed', "Please wait", 'Reset Password', 0, 'password', '')
+                db.delete('reset_password', {'user_id': user.id})
+                verification_code = str(generate_verification_code(4))
+                reset_key = generate_key(24)
+                email_auth.sendVerificationCode(verification_code, data.get('email'))
+                db.insert('reset_password', {'id': None, 'user_id': user.id, 'reset_key': reset_key, 'verification_code': verification_code, 'date_created': datetime.now().timestamp()})
+                return api_res('success', "Generate new verification", 'Reset Password', 0, 'user.id', user.id)
                 
-            verification_code = str(generate_verification_code(6))
+            verification_code = str(generate_verification_code(4))
             reset_key = generate_key(24)
             email_auth.sendVerificationCode(verification_code, data.get('email'))
             db.insert('reset_password', {'id': None, 'user_id': user.id, 'reset_key': reset_key, 'verification_code': verification_code, 'date_created': datetime.now().timestamp()})
@@ -782,7 +876,7 @@ def auth_confirm():
     if all(x in data for x in ['user_id', 'verification_code']):
         query_result = db.get_where('reset_password', {'user_id': data.get('user_id')})
         if len(query_result) > 0:          
-            if int(datetime.now().timestamp()) - int(query_result[0][4]) > 30:
+            if int(datetime.now().timestamp()) - int(query_result[0][4]) > 30 * 60:
                 db.delete('reset_password', {'id': query_result[0][0]})
                 return api_res('failed', "Reset timeout", 'Reset Password', 0, 'password', '')
                 
@@ -823,7 +917,7 @@ def change_password():
                 db.update_where('users', user.get(), {'id': data.get('user_id')})
                 return api_res('success', "Your password changed", 'Reset Password', 0, 'reset_key', '')
             else:
-                return api_res('failed', "The user is not resetting the password", 'Reset Password', 0, 'password', '')
+                return api_res('failed', "This user is not resetting the password", 'Reset Password', 0, 'password', '')
         else:
             return invalidRequest()
         

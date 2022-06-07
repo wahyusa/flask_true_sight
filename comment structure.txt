@@ -1,0 +1,13 @@
+[comment]
+id:int
+post_id:int
+author_id:int
+comment_text:longtext
+date_created:long
+
+# Sample
+A:Hai apa kabar?
+B:Apa
+
+# Select by post
+SELECT * FROM `comment` WHERE `post_id`=1

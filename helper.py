@@ -2,6 +2,7 @@ import os
 from random import Random
 from models.User import User
 from models.Claim import Claim
+from models.Comment import Comment
 from models.ApiSession import ApiSession
 from flask import jsonify
 import gcloud as gcs
