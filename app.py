@@ -407,21 +407,20 @@ def set_profile():
     if checkValidAPIrequest(request, db, content_type=['multipart/form-data']):
         data: dict = convert_request(request)
         if any(x in data for x in ['email', 'full_name', 'bookmarks']) or 'avatar' in request.files:
+            # Get Current User
+            current_user: User = getUserFromApiKey(
+                request.headers.get('x-api-key', None), db)
             # Return failed if email is already use
-            if len(db.get_where(
-                    'users', {'email': data.get('email', None)})) > 0:
-                return api_res('failed', 'Email already exist', 'Set Profile', 0, '', '')
+            if not current_user.email == data.get('email'):
+                if len(db.get_where('users', {'email': data.get('email', None)})) > 0:
+                    return api_res('failed', 'Email already exist', 'Set Profile', 0, '', '')
             
             if re.match(r"^[a-zA-Z0-9.! #$%&'*+/=? ^_`{|}~-]+@[a-zA-Z0-9-]+(?:\. [a-zA-Z0-9-]+)*$",  data.get('email')) is None:
                 return api_res('failed', 'Invalid email format', 'Set Profile', 0, '', '')
             
-            # Get Current User
-            current_user: User = getUserFromApiKey(
-                request.headers.get('x-api-key', None), db)
             current_user.email = data.get('email', current_user.email)
             current_user.full_name = data.get(
                 'full_name', current_user.full_name)
-            
             
             if 'bookmarks' in data:
                 if isinstance(data.get('bookmarks'), list):
