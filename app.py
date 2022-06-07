@@ -165,6 +165,11 @@ def reqistration():
 def search_api():
     if checkValidAPIrequest(request, db):
         data: dict = convert_request(request)
+        
+        # Cut data from given index and limit
+        begin = int(data.get('begin', 0))
+        limit = int(data.get('limit', 99999))
+        date_range = int(data.get('group_by_date_range', 604800)) # Range 7 days
 
         # If no keyword, then return all
         if (data.get('keyword', "") == ""):
@@ -175,10 +180,10 @@ def search_api():
                 claims.append(claim.get())
 
             # Sort by vote from biggest
-            claims = sorted(claims, key=lambda x: (
+            claims = sorted(claims, key=lambda x: (int(x['date_created']/date_range),
                 x['upvote']-x['downvote']), reverse=True)
 
-            return api_res('success', '', 'Query', len(claims), "query", claims)
+            return api_res('success', '', 'Query', len(claims), "query", claims[begin:begin+limit])
 
         # If has keywords, get claims from database and build array dictionary
         claims = {}
@@ -187,9 +192,6 @@ def search_api():
             claim.attachment = claim.attachment.split(',')
             claims = SearchEngine.addDataToDictionary(claim.get(), claims)
 
-        # Cut data from given index and limit
-        begin = int(data.get('begin', 0))
-        limit = int(data.get('limit', 99999))
 
         if len(claims.values()) > 0:
             # Search data by given keywords
