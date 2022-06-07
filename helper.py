@@ -2,6 +2,7 @@ import os
 from random import Random
 from models.User import User
 from models.Claim import Claim
+from models.Comment import Comment
 from models.ApiSession import ApiSession
 from flask import jsonify
 import gcloud as gcs
@@ -51,10 +52,12 @@ def userToProfileJson(user: User, hidePresonalInformation: bool = True):
         email = None
     else:
         # Send personal information
-        bookmarks = None if user.bookmarks is None else [int(x) for x in user.bookmarks.split(
-            ',')]
-        votes = None if user.votes is None else [voteToJson(x) for x in user.votes.split(
-            ',')]
+        # bookmarks = None if user.bookmarks is None else [int(x) for x in user.bookmarks.split(
+        #     ',')]
+        # votes = None if user.votes is None else [voteToJson(x) for x in user.votes.split(
+        #     ',')]
+        bookmarks = user.bookmarks
+        votes = user.votes
         date_created = user.date_created
         email = user.email
     return {
@@ -64,7 +67,8 @@ def userToProfileJson(user: User, hidePresonalInformation: bool = True):
         "email": email,
         "bookmarks": bookmarks,
         "date_created": date_created,
-        "verified": user.verified,
+        "avatar": user.avatar,
+        "verified": int(user.verified),
         "votes": votes
     }
 
@@ -89,6 +93,19 @@ def uploader(bytes, destination: str) -> bool:
     else:
         raise Exception('Extension not Allowed')
 
+def deletefromresource(destination: str) -> bool:
+    logger.debug('Request delete file')
+    destination = destination.strip()
+    if int(os.environ.get("LOCAL", 0)) == 1:
+        full_path = os.path.join(os.getcwd(), destination)
+        if os.path.exists(os.path.dirname(destination)):
+            os.remove(destination)
+        else:
+            logger.error("Delete Resource",'File not found "' + full_path + '"')
+    else:
+        full_path = "gs://{}/uploads/{}".format(
+            os.getenv('BUCKET_NAME'), destination)
+        gcs.getBlob(full_path).delete()
 
 def predict(claim: str, tensorhelper: TensorHelper):
     """Predict from string"""
@@ -172,3 +189,7 @@ def getUserFromApiKey(api_key: str, db) -> User:
 def generate_key(length):
     """Generate random alfanum with given length"""
     return ''.join(random.choice(string.ascii_lowercase + string.digits) for _ in range(length))
+
+def generate_verification_code(length):
+    """Generate random alfanum with given length"""
+    return ''.join(random.choice(string.digits + string.digits) for _ in range(length))

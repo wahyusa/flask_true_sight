@@ -109,7 +109,7 @@ class Database:
                     query, c.rowcount))
         except Exception as ex:
             logger.error("MYSQL UPDATE", ex)
-        return ()
+        return c.lastrowid
 
     def query(self, query: str):
         try:
@@ -124,7 +124,23 @@ class Database:
         except Exception as ex:
             logger.error("MYSQL QUERY", ex)
         return ()
+    
+    def delete(self, table, where: dict):
+        condition = list()
+        for _ in where.keys():
+            condition.append(_ + "=%s")
+        query = 'DELETE FROM `' + table + \
+            '` WHERE ' + ' AND '.join(condition)
+        where = list(where.values())
+        try:
+            c = self.conn.execute(query, [x for x in where])
+            if c.rowcount > 0:
+                print("Number of rows affected by statement '{}': {}".format(
+                    query, c.rowcount))
+        except Exception as ex:
+            logger.error("MYSQL UPDATE", ex)
 
+        return ()
 
 class Model:
 

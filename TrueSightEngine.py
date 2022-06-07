@@ -116,9 +116,9 @@ class SearchEngine:
         data = list(data)
         # Remove stopwords
         search_words = SearchEngine.RemoveStopWords(
-            keywords.split()) if use_stopwords else keywords.split()
+            keywords.lower().split()) if use_stopwords else keywords.lower().split()
         filtered_keywords = ' '.join(
-            search_words) if use_stopwords else keywords
+            search_words) if use_stopwords else keywords.lower()
 
         # Vectorization
         vectorizer = TfidfVectorizer()
@@ -170,15 +170,15 @@ class SearchEngine:
         for header in list(lookupHeader):
             for i, (_, item) in enumerate(data[header].items()):
                 if len(datalist) <= i:
-                    datalist.append(item)
+                    datalist.append(item.lower())
                 else:
-                    datalist[i] += " " + item
+                    datalist[i] += " " + item.lower()
 
         # Remove all stopwords
         search_words = SearchEngine.RemoveStopWords(
-            keywords.split()) if use_stopwords else keywords.split()
+            keywords.lower().split()) if use_stopwords else keywords.lower().split()
         filtered_keywords = ' '.join(
-            search_words) if use_stopwords else keywords
+            search_words) if use_stopwords else keywords.lower()
 
         # Vectorization
         vectorizer = TfidfVectorizer()
