@@ -188,8 +188,8 @@ def search_api():
             claims = SearchEngine.addDataToDictionary(claim.get(), claims)
 
         # Cut data from given index and limit
-        begin = data.get('begin', 0)
-        limit = data.get('limit', 99999)
+        begin = int(data.get('begin', 0))
+        limit = int(data.get('limit', 99999))
 
         if len(claims.values()) > 0:
             # Search data by given keywords
@@ -253,17 +253,14 @@ def get_resources(path):
         if int(os.environ.get('LOCAL', 0)) == 1:
             # Build full path
             full_path = os.path.join(os.getcwd(), os.path.sep.join(paths_split))
-            logger.debug('Parh: ' + full_path)
             # Only if file exists
             if os.path.exists(full_path) and os.path.isfile(full_path):
                 # Open file and read all bytes
                 file_stream = open(full_path, 'rb').read()
-                logger.debug('File Read:' + full_path)
                 # Get mime_type of file
                 mime_type = magic.from_buffer(file_stream)
                 if any(x in mime_type.lower() for x in mime_exception):
                     mime_type = str("text/plain")
-                logger.debug('File Type:' + mime_type)
                 # Make response
                 response = app.response_class(
                     response=file_stream,
@@ -279,18 +276,14 @@ def get_resources(path):
             full_path = "gs://" + \
                 os.getenv("BUCKET_NAME") + "/uploads/" + '/'.join(paths_split)
 
-            logger.debug(full_path)
-
             # Check File if exists
             if gcs.isFileExist(full_path):
                 # Open file and read all bytes
                 file_stream = gcs.getBlob(full_path).open('rb').read()
-                logger.debug('File Read:' + full_path)
                 # Get mime type
                 mime_type = magic.from_buffer(file_stream)
                 if any(x in mime_type.lower() for x in mime_exception):
                     mime_type = str("text/plain")
-                logger.debug('File Type:' + mime_type)
                 # Make Response
                 response = app.response_class(
                     response=file_stream,
@@ -312,12 +305,10 @@ def get_resources(path):
             if os.path.exists(full_path) and os.path.isfile(full_path):
                 # Open file and read all bytes
                 file_stream = open(full_path, 'rb').read()
-                logger.debug('File Read:' + full_path)
                 # Get mime_type of file
                 mime_type = magic.from_buffer(file_stream)
                 if any(x in mime_type.lower() for x in mime_exception):
                     mime_type = str("text/plain")
-                logger.debug('File Type:' + mime_type)
                 # Make response
                 response = app.response_class(
                     response=file_stream,
@@ -332,20 +323,16 @@ def get_resources(path):
             # Build full cloud storage path
             full_path = "gs://" + \
                 os.getenv("BUCKET_NAME") + "/uploads/avatar/" + '/'.join(paths_split[1:])
-                
-            logger.debug(full_path)
 
             # Check File if exists
             if gcs.isFileExist(full_path):
                 # Open file and read all bytes
                 file_stream = gcs.getBlob(full_path).open('rb').read()
-                logger.debug('File Read:' + full_path)
                 # Get mime type
                 mime_type = magic.from_buffer(file_stream)
                 # Avoid file execution
                 if any(x in mime_type.lower() for x in mime_exception):
                     mime_type = str("text/plain")
-                logger.debug('File Type:' + mime_type)
                 # Make Response
                 response = app.response_class(
                     response=file_stream,
@@ -415,7 +402,7 @@ def set_profile():
                 if len(db.get_where('users', {'email': data.get('email', None)})) > 0:
                     return api_res('failed', 'Email already exist', 'Set Profile', 0, '', '')
             
-            if re.match(r"^[a-zA-Z0-9]+(?:(?:[\._-])[a-zA-Z0-9]+)*@[a-zA-Z0-9-]+(?:\.[a-zA-Z0-9-]+)*$",  data.get('email')) is None:
+            if re.match(r"^[a-zA-Z0-9]+(?:(?:[\._-])[a-zA-Z0-9]+)*@[a-zA-Z0-9-]+(?:\.[a-zA-Z0-9-]+)*$", data.get('email')) is None:
                 return api_res('failed', 'Invalid email format', 'Set Profile', 0, '', '')
             
             current_user.email = data.get('email', current_user.email)
@@ -443,8 +430,7 @@ def set_profile():
                             raise Exception('Extension not allowed')
                 except Exception as ex:
                     return api_res('failed', str(ex), 'Set Profile', 0, 'avatar', '')
-            db.update_where('users', current_user.get(),
-                {'id': current_user.id})
+            db.update_where('users', current_user.get(), {'id': current_user.id})
             return api_res('success', "", 'Set Profile', 0, '', '')
         else:
             return invalidUserInput('Set Profile')
@@ -653,8 +639,8 @@ def bookmark_list():
             claim = Claim.parse(claim)
             if claim.id in bookmarks:
                 claims_bookmarked.append(claim.get())
-        start = data.get('start', 0)
-        limit = data.get('limit', 9999)
+        start = int(data.get('start', 0))
+        limit = int(data.get('limit', 9999))
         return api_res('success', "", 'Bookmarks', len(claims_bookmarked), 'bookmarks', claims_bookmarked[start:start+limit])
     else:
         return invalidRequest()
@@ -739,8 +725,8 @@ def votes_down():
 def my_claim():
     if checkValidAPIrequest(request, db):
         data: dict = convert_request(request)
-        start = data.get('start', 0)
-        limit = data.get('limit', 99999)
+        start = int(data.get('start', 0))
+        limit = int(data.get('limit', 99999))
         current_user: User = getUserFromApiKey(
             request.headers.get('x-api-key', None), db)
         query_result = db.get_where('claims', {'author_id': current_user.id})
