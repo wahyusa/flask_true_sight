@@ -633,6 +633,8 @@ def bookmark_list():
         current_user: User = getUserFromApiKey(
             request.headers.get('x-api-key', None), db)
         claims = db.get('claims')
+        if current_user.bookmarks is None:
+            return api_res('success', "No bookmarks", 'Bookmarks', 0, 'bookmarks', [])
         raw_bookmarks = current_user.bookmarks.split(',')
         bookmarks = [int(x) for x in raw_bookmarks]
         del raw_bookmarks
