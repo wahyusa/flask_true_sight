@@ -891,7 +891,7 @@ def change_password():
                     db.update_where('users', current_user.get(), {'id': current_user.id} )
                     return api_res('success', "Password Changed", 'Change Password', 0, 'password', '')   
                 else:
-                    return api_res('failed', "Password too short", 'Change Password', 0, 'password', '')   
+                    return api_res('failed', "New password too short", 'Change Password', 0, 'password', '')   
             else:
                 return api_res('failed', "Wrong current password", 'Change Password', 0, 'password', '')
         else:
@@ -901,10 +901,10 @@ def change_password():
             query_result = db.get_where('reset_password', {'reset_key': data.get('reset_key')})
             if len(query_result) > 0:
                 db.delete('reset_password', {'id': query_result[0][0]})
-                user = User.parse(db.get_where('users', {'id': data.get('user_id')})[0])
+                user = User.parse(db.get_where('users', {'id': query_result[0][1]})[0])
                 user.password = bcrypt.generate_password_hash(data.get('new_password'))
-                db.update_where('users', user.get(), {'id': data.get('user_id')})
-                return api_res('success', "Your password changed", 'Reset Password', 0, 'reset_key', '')
+                db.update_where('users', user.get(), {'id': user.id})
+                return api_res('success', "Your password changed", 'Reset Password', 0, '', '')
             else:
                 return api_res('failed', "This user is not resetting the password", 'Reset Password', 0, 'password', '')
         else:
