@@ -2,7 +2,7 @@ from crypt import methods
 from werkzeug.routing import BaseConverter
 from helper import *
 from dotenv import load_dotenv
-from flask import Flask, request, abort
+from flask import Flask, request, abort, render_template
 from flask_bcrypt import Bcrypt
 from database import Database
 from datetime import datetime
@@ -12,6 +12,7 @@ import os
 import magic
 import urllib.parse as urlparse
 import email_auth
+from models.Verification import VerifyModel
 
 # from google.appengine.api import app_identity
 
@@ -78,6 +79,9 @@ def auth():
             if len(user) > 0:
                 # Cast to User()
                 user = User.parse(user[0])
+                
+                if user.role == -1:
+                    return api_res('failed', 'Please verification this account first!', 'Auth', 0, 'ApiKey', '')
 
                 # Check if given password match with user password
                 if bcrypt.check_password_hash(user.password, data['password']):
@@ -137,26 +141,32 @@ def reqistration():
             return api_res('failed', 'Email already exist', 'Reg', 0, '', '')
 
         # Insert new user into database
-        db.insert('users', User().set(
+        new_user = User().set(
             None,
             data.get('username', None),
             data.get('full_name', data.get('username')),
             data.get('email', None),
             bcrypt.generate_password_hash(data.get('password', None)),
             datetime.now().timestamp()
-        ).get())
+        )
+        new_user.id = db.insert('users', new_user.get())
+        
+        verify_token = generate_key(32)
+        db.insert('email_verification', VerifyModel().set(
+            None,
+            verify_token,
+            new_user.id
+        ))
+        
+        email_auth.sendVerificationEmail(os.getenv("BASE_URL") + "verification/?verify=" + verify_token, new_user.email)
 
-        logger.info('Registration', 'User created ' + data['username'])
-
-        # Get user from database to get id
-        user = User.parse(db.get_where(
-            'users', {'username': data['username']})[0])
+        logger.info('Registration', 'Registration successful, please verify your email. Check your email inbox or spam')
 
         # Generate new api key and insert into table
         api_key = generate_key(64)
-        db.insert('api_session', ApiSession().set(None, api_key, user.id, datetime.now().timestamp(), 0).get())
+        db.insert('api_session', ApiSession().set(None, api_key, new_user.id, datetime.now().timestamp(), 0).get())
 
-        return api_res('success', 'User added', 'Registration', 0, '', user.get())
+        return api_res('success', 'User added', 'Registration', 0, '', new_user.get())
     else:
         return invalidRequest()
 
@@ -909,6 +919,21 @@ def change_password():
                 return api_res('failed', "This user is not resetting the password", 'Reset Password', 0, 'password', '')
         else:
             return invalidRequest()
+        
+@app.route("/verification/", methods=['GET'])
+def verification_email():
+    data = dict(request.args)
+    if all(x in data for x in ['verify']):
+        result = db.get_where('email_verification', {'code_verification':data.get('verify')})
+        if len(result) > 0:
+            verifyObj = VerifyModel.parse(result)
+            db.update_where('users', {'role': 1},{'id': verifyObj.user_id})
+            db.delete('email_verification', {'id': verifyObj.id})
+            return render_template('verified_success.html')
+        else:
+            return render_template('verified_failed.html')
+    else:
+        return render_template('verified_failed.html')
         
 if __name__ == '__main__':
     server_port = os.environ.get('FLASK_RUN_PORT', '8080')
