@@ -156,7 +156,7 @@ def reqistration():
             None,
             verify_token,
             new_user.id
-        ))
+        ).get())
         
         email_auth.sendVerificationEmail(os.getenv("BASE_URL") + "verification/?verify=" + verify_token, new_user.email)
 
