@@ -146,7 +146,7 @@ def reqistration():
             data.get('username', None),
             data.get('full_name', data.get('username')),
             data.get('email', None),
-            bcrypt.generate_password_hash(data.get('password', None)),
+            bcrypt.generate_password_hash(data.get('password', None)).decode('utf-8'),
             datetime.now().timestamp()
         )
         new_user.id = db.insert('users', new_user.get())
@@ -165,8 +165,10 @@ def reqistration():
         # Generate new api key and insert into table
         api_key = generate_key(64)
         db.insert('api_session', ApiSession().set(None, api_key, new_user.id, datetime.now().timestamp(), 0).get())
+        
+        logger.debug("USER MODEL:"+ str(new_user.get()))
 
-        return api_res('success', 'User added', 'Registration', 0, '', new_user.get())
+        return api_res('success', 'Registration successful, please verify your email. Check your email inbox or spam', 'Registration', 0, '', new_user.get())
     else:
         return invalidRequest()
 
@@ -898,7 +900,7 @@ def change_password():
                 request.headers.get('x-api-key', None), db)
             if bcrypt.check_password_hash(current_user.password, data['current_password']):
                 if len(data.get('new_password')) >= 8:
-                    current_user.password = bcrypt.generate_password_hash(data.get('new_password')),
+                    current_user.password = bcrypt.generate_password_hash(data.get('new_password')).decode('utf-8'),
                     db.update_where('users', current_user.get(), {'id': current_user.id} )
                     return api_res('success', "Password Changed", 'Change Password', 0, 'password', '')   
                 else:
@@ -913,7 +915,7 @@ def change_password():
             if len(query_result) > 0:
                 db.delete('reset_password', {'id': query_result[0][0]})
                 user = User.parse(db.get_where('users', {'id': query_result[0][1]})[0])
-                user.password = bcrypt.generate_password_hash(data.get('new_password'))
+                user.password = bcrypt.generate_password_hash(data.get('new_password')).decode('utf-8')
                 db.update_where('users', user.get(), {'id': user.id})
                 return api_res('success', "Your password changed", 'Reset Password', 0, '', '')
             else:
@@ -927,7 +929,7 @@ def verification_email():
     if all(x in data for x in ['verify']):
         result = db.get_where('email_verification', {'code_verification':data.get('verify')})
         if len(result) > 0:
-            verifyObj = VerifyModel.parse(result)
+            verifyObj = VerifyModel.parse(result[0])
             db.update_where('users', {'role': 1},{'id': verifyObj.user_id})
             db.delete('email_verification', {'id': verifyObj.id})
             return render_template('verified_success.html')
