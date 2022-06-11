@@ -651,6 +651,7 @@ def bookmark_list():
         claims_bookmarked = list()
         for claim in claims:
             claim = Claim.parse(claim)
+            claim.attachment = claim.attachment.split(',')
             if claim.id in bookmarks:
                 claims_bookmarked.append(claim.get())
         start = int(data.get('start', 0))
