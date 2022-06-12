@@ -2,7 +2,7 @@ from crypt import methods
 from werkzeug.routing import BaseConverter
 from helper import *
 from dotenv import load_dotenv
-from flask import Flask, request, abort
+from flask import Flask, request, abort, render_template
 from flask_bcrypt import Bcrypt
 from database import Database
 from datetime import datetime
@@ -12,6 +12,7 @@ import os
 import magic
 import urllib.parse as urlparse
 import email_auth
+from models.Verification import VerifyModel
 
 # from google.appengine.api import app_identity
 
@@ -78,6 +79,9 @@ def auth():
             if len(user) > 0:
                 # Cast to User()
                 user = User.parse(user[0])
+                
+                if user.role == -1:
+                    return api_res('failed', 'Please verification this account first!', 'Auth', 0, 'ApiKey', '')
 
                 # Check if given password match with user password
                 if bcrypt.check_password_hash(user.password, data['password']):
@@ -125,7 +129,8 @@ def reqistration():
         if re.match(r"^[\w\.]+$",  data.get('username')) is None:
             return api_res('failed', 'Invalid username format', 'Reg', 0, '', '')
         
-        if re.match(r"^[a-zA-Z0-9]+(?:(?:\.|\_)[a-zA-Z0-9]+)*@[a-zA-Z0-9]+(?:\.[a-zA-Z0-9-]+)*$",  data.get('email')) is None:
+        if re.match(r"^[a-zA-Z0-9]+(?:(?:[\._-])[a-zA-Z0-9]+)*@[a-zA-Z0-9-]+(?:\.[a-zA-Z0-9-]+)*$",  data.get('email')) is None:
+
             return api_res('failed', 'Invalid email format', 'Reg', 0, '', '')
         
         if len(data.get('password')) < 8:
@@ -137,26 +142,34 @@ def reqistration():
             return api_res('failed', 'Email already exist', 'Reg', 0, '', '')
 
         # Insert new user into database
-        db.insert('users', User().set(
+        new_user = User().set(
             None,
             data.get('username', None),
             data.get('full_name', data.get('username')),
             data.get('email', None),
-            bcrypt.generate_password_hash(data.get('password', None)),
+            bcrypt.generate_password_hash(data.get('password', None)).decode('utf-8'),
             datetime.now().timestamp()
+        )
+        new_user.id = db.insert('users', new_user.get())
+        
+        verify_token = generate_key(32)
+        db.insert('email_verification', VerifyModel().set(
+            None,
+            verify_token,
+            new_user.id
         ).get())
+        
+        email_auth.sendVerificationEmail(os.getenv("BASE_URL") + "verification/?verify=" + verify_token, new_user.email)
 
-        logger.info('Registration', 'User created ' + data['username'])
-
-        # Get user from database to get id
-        user = User.parse(db.get_where(
-            'users', {'username': data['username']})[0])
+        logger.info('Registration', 'Registration successful, please verify your email. Check your email inbox or spam')
 
         # Generate new api key and insert into table
         api_key = generate_key(64)
-        db.insert('api_session', ApiSession().set(None, api_key, user.id, datetime.now().timestamp(), 0).get())
+        db.insert('api_session', ApiSession().set(None, api_key, new_user.id, datetime.now().timestamp(), 0).get())
+        
+        logger.debug("USER MODEL:"+ str(new_user.get()))
 
-        return api_res('success', 'User added', 'Registration', 0, '', user.get())
+        return api_res('success', 'Registration successful, please verify your email. Check your email inbox or spam', 'Registration', 0, '', new_user.get())
     else:
         return invalidRequest()
 
@@ -165,6 +178,11 @@ def reqistration():
 def search_api():
     if checkValidAPIrequest(request, db):
         data: dict = convert_request(request)
+        
+        # Cut data from given index and limit
+        begin = int(data.get('begin', 0))
+        limit = int(data.get('limit', 99999))
+        date_range = int(data.get('group_by_date_range', 604800)) # Range 7 days
 
         # If no keyword, then return all
         if (data.get('keyword', "") == ""):
@@ -175,10 +193,10 @@ def search_api():
                 claims.append(claim.get())
 
             # Sort by vote from biggest
-            sorted(claims, key=lambda x: (
+            claims = sorted(claims, key=lambda x: (int(x['date_created']/date_range),
                 x['upvote']-x['downvote']), reverse=True)
 
-            return api_res('success', '', 'Query', len(claims), "query", claims)
+            return api_res('success', '', 'Query', len(claims), "query", claims[begin:begin+limit])
 
         # If has keywords, get claims from database and build array dictionary
         claims = {}
@@ -187,9 +205,6 @@ def search_api():
             claim.attachment = claim.attachment.split(',')
             claims = SearchEngine.addDataToDictionary(claim.get(), claims)
 
-        # Cut data from given index and limit
-        begin = data.get('begin', 0)
-        limit = data.get('limit', 99999)
 
         if len(claims.values()) > 0:
             # Search data by given keywords
@@ -253,17 +268,14 @@ def get_resources(path):
         if int(os.environ.get('LOCAL', 0)) == 1:
             # Build full path
             full_path = os.path.join(os.getcwd(), os.path.sep.join(paths_split))
-            logger.debug('Parh: ' + full_path)
             # Only if file exists
             if os.path.exists(full_path) and os.path.isfile(full_path):
                 # Open file and read all bytes
                 file_stream = open(full_path, 'rb').read()
-                logger.debug('File Read:' + full_path)
                 # Get mime_type of file
                 mime_type = magic.from_buffer(file_stream)
                 if any(x in mime_type.lower() for x in mime_exception):
                     mime_type = str("text/plain")
-                logger.debug('File Type:' + mime_type)
                 # Make response
                 response = app.response_class(
                     response=file_stream,
@@ -279,18 +291,14 @@ def get_resources(path):
             full_path = "gs://" + \
                 os.getenv("BUCKET_NAME") + "/uploads/" + '/'.join(paths_split)
 
-            logger.debug(full_path)
-
             # Check File if exists
             if gcs.isFileExist(full_path):
                 # Open file and read all bytes
                 file_stream = gcs.getBlob(full_path).open('rb').read()
-                logger.debug('File Read:' + full_path)
                 # Get mime type
                 mime_type = magic.from_buffer(file_stream)
                 if any(x in mime_type.lower() for x in mime_exception):
                     mime_type = str("text/plain")
-                logger.debug('File Type:' + mime_type)
                 # Make Response
                 response = app.response_class(
                     response=file_stream,
@@ -312,12 +320,10 @@ def get_resources(path):
             if os.path.exists(full_path) and os.path.isfile(full_path):
                 # Open file and read all bytes
                 file_stream = open(full_path, 'rb').read()
-                logger.debug('File Read:' + full_path)
                 # Get mime_type of file
                 mime_type = magic.from_buffer(file_stream)
                 if any(x in mime_type.lower() for x in mime_exception):
                     mime_type = str("text/plain")
-                logger.debug('File Type:' + mime_type)
                 # Make response
                 response = app.response_class(
                     response=file_stream,
@@ -332,20 +338,16 @@ def get_resources(path):
             # Build full cloud storage path
             full_path = "gs://" + \
                 os.getenv("BUCKET_NAME") + "/uploads/avatar/" + '/'.join(paths_split[1:])
-                
-            logger.debug(full_path)
 
             # Check File if exists
             if gcs.isFileExist(full_path):
                 # Open file and read all bytes
                 file_stream = gcs.getBlob(full_path).open('rb').read()
-                logger.debug('File Read:' + full_path)
                 # Get mime type
                 mime_type = magic.from_buffer(file_stream)
                 # Avoid file execution
                 if any(x in mime_type.lower() for x in mime_exception):
                     mime_type = str("text/plain")
-                logger.debug('File Type:' + mime_type)
                 # Make Response
                 response = app.response_class(
                     response=file_stream,
@@ -394,7 +396,7 @@ def get_claim():
                 claim.attachment = claim.attachment.split(',')
                 return api_res('success', '', 'Claim', 0, 'claim', claim.get())
             else:
-                return abort(406)
+                return abort(403)
         else:
             return invalidUserInput('Get Claim')
 
@@ -407,21 +409,20 @@ def set_profile():
     if checkValidAPIrequest(request, db, content_type=['multipart/form-data']):
         data: dict = convert_request(request)
         if any(x in data for x in ['email', 'full_name', 'bookmarks']) or 'avatar' in request.files:
-            # Return failed if email is already use
-            if len(db.get_where(
-                    'users', {'email': data.get('email', None)})) > 0:
-                return api_res('failed', 'Email already exist', 'Set Profile', 0, '', '')
-            
-            if re.match(r"^[a-zA-Z0-9.! #$%&'*+/=? ^_`{|}~-]+@[a-zA-Z0-9-]+(?:\. [a-zA-Z0-9-]+)*$",  data.get('email')) is None:
-                return api_res('failed', 'Invalid email format', 'Set Profile', 0, '', '')
-            
             # Get Current User
             current_user: User = getUserFromApiKey(
                 request.headers.get('x-api-key', None), db)
+            # Return failed if email is already use
+            if not current_user.email == data.get('email'):
+                if len(db.get_where('users', {'email': data.get('email', None)})) > 0:
+                    return api_res('failed', 'Email already exist', 'Set Profile', 0, '', '')
+            
+            if re.match(r"^[a-zA-Z0-9]+(?:(?:[\._-])[a-zA-Z0-9]+)*@[a-zA-Z0-9-]+(?:\.[a-zA-Z0-9-]+)*$", data.get('email')) is None:
+                return api_res('failed', 'Invalid email format', 'Set Profile', 0, '', '')
+            
             current_user.email = data.get('email', current_user.email)
             current_user.full_name = data.get(
                 'full_name', current_user.full_name)
-            
             
             if 'bookmarks' in data:
                 if isinstance(data.get('bookmarks'), list):
@@ -444,8 +445,7 @@ def set_profile():
                             raise Exception('Extension not allowed')
                 except Exception as ex:
                     return api_res('failed', str(ex), 'Set Profile', 0, 'avatar', '')
-            db.update_where('users', current_user.get(),
-                {'id': current_user.id})
+            db.update_where('users', current_user.get(), {'id': current_user.id})
             return api_res('success', "", 'Set Profile', 0, '', '')
         else:
             return invalidUserInput('Set Profile')
@@ -577,8 +577,11 @@ def delete_claim():
                 if not claim.attachment is None:
                     for last_attachment in claim.attachment.split(','):
                         try:
-                            path_to_file = last_attachment[len(os.getenv('BASE_URL')):]
-                            deletefromresource(path_to_file)
+                            path_to_file = path_to_file = urlparse.unquote(last_attachment[len(os.getenv('BASE_URL')):]).split('/')
+                            if int(os.environ.get("LOCAL", 0)) == 1:
+                                deletefromresource(os.path.sep.join(path_to_file[1:]))
+                            else:
+                                deletefromresource('/'.join(path_to_file[1:]))
                         except Exception as ex:
                             logger.debug(ex)
                 db.delete('claims', {'id': claim.id})
@@ -646,16 +649,19 @@ def bookmark_list():
         current_user: User = getUserFromApiKey(
             request.headers.get('x-api-key', None), db)
         claims = db.get('claims')
+        if current_user.bookmarks is None:
+            return api_res('success', "No bookmarks", 'Bookmarks', 0, 'bookmarks', [])
         raw_bookmarks = current_user.bookmarks.split(',')
         bookmarks = [int(x) for x in raw_bookmarks]
         del raw_bookmarks
         claims_bookmarked = list()
         for claim in claims:
             claim = Claim.parse(claim)
+            claim.attachment = claim.attachment.split(',')
             if claim.id in bookmarks:
                 claims_bookmarked.append(claim.get())
-        start = data.get('start', 0)
-        limit = data.get('limit', 9999)
+        start = int(data.get('start', 0))
+        limit = int(data.get('limit', 9999))
         return api_res('success', "", 'Bookmarks', len(claims_bookmarked), 'bookmarks', claims_bookmarked[start:start+limit])
     else:
         return invalidRequest()
@@ -740,8 +746,8 @@ def votes_down():
 def my_claim():
     if checkValidAPIrequest(request, db):
         data: dict = convert_request(request)
-        start = data.get('start', 0)
-        limit = data.get('limit', 99999)
+        start = int(data.get('start', 0))
+        limit = int(data.get('limit', 99999))
         current_user: User = getUserFromApiKey(
             request.headers.get('x-api-key', None), db)
         query_result = db.get_where('claims', {'author_id': current_user.id})
@@ -751,6 +757,17 @@ def my_claim():
             claim.attachment = claim.attachment.split(',')
             claims_proses.append(claim.get())
         return api_res('success', "", 'My Claim', len(claims_proses), 'claim', claims_proses[start:start+limit])
+    else:
+        return invalidRequest()
+    
+@app.route("/api/available/claims/", methods=['POST'])
+def available_claims():
+    if checkValidAPIrequest(request, db):
+        query_result = db.get('claims')
+        claims = list()
+        for _ in query_result:
+            claims.append(Claim.parse(_).id)
+        return api_res('success', "", 'Claim ID', len(claims), 'claim[].id', claims)
     else:
         return invalidRequest()
 
@@ -898,11 +915,11 @@ def change_password():
                 request.headers.get('x-api-key', None), db)
             if bcrypt.check_password_hash(current_user.password, data['current_password']):
                 if len(data.get('new_password')) >= 8:
-                    current_user.password = bcrypt.generate_password_hash(data.get('new_password')),
+                    current_user.password = bcrypt.generate_password_hash(data.get('new_password')).decode('utf-8'),
                     db.update_where('users', current_user.get(), {'id': current_user.id} )
                     return api_res('success', "Password Changed", 'Change Password', 0, 'password', '')   
                 else:
-                    return api_res('failed', "Password too short", 'Change Password', 0, 'password', '')   
+                    return api_res('failed', "New password too short", 'Change Password', 0, 'password', '')   
             else:
                 return api_res('failed', "Wrong current password", 'Change Password', 0, 'password', '')
         else:
@@ -912,14 +929,29 @@ def change_password():
             query_result = db.get_where('reset_password', {'reset_key': data.get('reset_key')})
             if len(query_result) > 0:
                 db.delete('reset_password', {'id': query_result[0][0]})
-                user = User.parse(db.get_where('users', {'id': data.get('user_id')})[0])
-                user.password = bcrypt.generate_password_hash(data.get('new_password'))
-                db.update_where('users', user.get(), {'id': data.get('user_id')})
-                return api_res('success', "Your password changed", 'Reset Password', 0, 'reset_key', '')
+                user = User.parse(db.get_where('users', {'id': query_result[0][1]})[0])
+                user.password = bcrypt.generate_password_hash(data.get('new_password')).decode('utf-8')
+                db.update_where('users', user.get(), {'id': user.id})
+                return api_res('success', "Your password changed", 'Reset Password', 0, '', '')
             else:
                 return api_res('failed', "This user is not resetting the password", 'Reset Password', 0, 'password', '')
         else:
             return invalidRequest()
+        
+@app.route("/verification/", methods=['GET'])
+def verification_email():
+    data = dict(request.args)
+    if all(x in data for x in ['verify']):
+        result = db.get_where('email_verification', {'code_verification':data.get('verify')})
+        if len(result) > 0:
+            verifyObj = VerifyModel.parse(result[0])
+            db.update_where('users', {'role': 1},{'id': verifyObj.user_id})
+            db.delete('email_verification', {'id': verifyObj.id})
+            return render_template('verified_success.html')
+        else:
+            return render_template('verified_failed.html')
+    else:
+        return render_template('verified_failed.html')
         
 if __name__ == '__main__':
     server_port = os.environ.get('FLASK_RUN_PORT', '8080')
