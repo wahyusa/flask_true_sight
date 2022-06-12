@@ -759,6 +759,17 @@ def my_claim():
         return api_res('success', "", 'My Claim', len(claims_proses), 'claim', claims_proses[start:start+limit])
     else:
         return invalidRequest()
+    
+@app.route("/api/available/claims/", methods=['POST'])
+def available_claims():
+    if checkValidAPIrequest(request, db):
+        query_result = db.get('claims')
+        claims = list()
+        for _ in query_result:
+            claims.append(Claim.parse(_).id)
+        return api_res('success', "", 'Claim ID', len(claims), 'claim[].id', claims)
+    else:
+        return invalidRequest()
 
 @app.route("/api/get/comments/", methods=['POST'])
 def get_comment():
