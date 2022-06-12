@@ -275,21 +275,6 @@ def sendVerificationEmail(link_verification, receiver):
             .grayed{
                 color: gray;
             }
-            .btn {
-                display: block;
-                background-color: darkorange;
-                color: white;
-                padding: 10px;
-                border-radius: 5px;
-                font-style: normal;
-                font-weight: bold;
-                font-size: 24px;
-                font-family: 'Lucida Sans', 'Lucida Sans Regular', 'Lucida Grande', 'Lucida Sans Unicode', Geneva, Verdana, sans-serif;
-                text-decoration: none;
-                margin-top: 20px;
-                margin-bottom: 20px;
-                width: fit-content;
-            }
             .box-center {
                 display: block;
                 position: absolute;
@@ -306,7 +291,7 @@ def sendVerificationEmail(link_verification, receiver):
             <div class="box"><center><h1>True Sight Email Verification</h1></center></div>
             <div class="container">
                 <p>Keep your True sight Account secure by verifying your email address.</p>
-                <center><a href="""+ link_verification + """ class="btn">Verify Email</a></center>
+                <center><a href=\"""" + link_verification + """\" style="display: block; background-color: darkorange; color: white; padding: 10px; border-radius: 5px; font-style: normal; font-weight: bold; font-size: 24px; font-family: 'Lucida Sans', 'Lucida Sans Regular', 'Lucida Grande', 'Lucida Sans Unicode', Geneva, Verdana, sans-serif; text-decoration: none; margin-top: 20px; margin-bottom: 20px; width: fit-content;">Verify Email</a></center>
                 <p class="grayed"><u><b>This is an automated email. Please do not reply to this email.</b></u></p> 
             </div>
         </div>

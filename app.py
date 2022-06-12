@@ -395,7 +395,7 @@ def get_claim():
                 claim.attachment = claim.attachment.split(',')
                 return api_res('success', '', 'Claim', 0, 'claim', claim.get())
             else:
-                return abort(406)
+                return abort(403)
         else:
             return invalidUserInput('Get Claim')
 
@@ -576,8 +576,11 @@ def delete_claim():
                 if not claim.attachment is None:
                     for last_attachment in claim.attachment.split(','):
                         try:
-                            path_to_file = last_attachment[len(os.getenv('BASE_URL')):]
-                            deletefromresource(path_to_file)
+                            path_to_file = path_to_file = urlparse.unquote(last_attachment[len(os.getenv('BASE_URL')):]).split('/')
+                            if int(os.environ.get("LOCAL", 0)) == 1:
+                                deletefromresource(os.path.sep.join(path_to_file[1:]))
+                            else:
+                                deletefromresource('/'.join(path_to_file[1:]))
                         except Exception as ex:
                             logger.debug(ex)
                 db.delete('claims', {'id': claim.id})
