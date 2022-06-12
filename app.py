@@ -130,6 +130,7 @@ def reqistration():
             return api_res('failed', 'Invalid username format', 'Reg', 0, '', '')
         
         if re.match(r"^[a-zA-Z0-9]+(?:(?:[\._-])[a-zA-Z0-9]+)*@[a-zA-Z0-9-]+(?:\.[a-zA-Z0-9-]+)*$",  data.get('email')) is None:
+
             return api_res('failed', 'Invalid email format', 'Reg', 0, '', '')
         
         if len(data.get('password')) < 8:
