@@ -50,6 +50,7 @@ def userToProfileJson(user: User, hidePresonalInformation: bool = True):
         bookmarks = None
         date_created = None
         email = None
+        role = None
     else:
         # Send personal information
         # bookmarks = None if user.bookmarks is None else [int(x) for x in user.bookmarks.split(
@@ -60,6 +61,7 @@ def userToProfileJson(user: User, hidePresonalInformation: bool = True):
         votes = user.votes
         date_created = user.date_created
         email = user.email
+        role = user.role
     return {
         "id": user.id,
         "username": user.username,
@@ -69,7 +71,8 @@ def userToProfileJson(user: User, hidePresonalInformation: bool = True):
         "date_created": date_created,
         "avatar": user.avatar,
         "verified": int(user.verified),
-        "votes": votes
+        "votes": votes,
+        "role": role
     }
 
 

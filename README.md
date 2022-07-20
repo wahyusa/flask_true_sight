@@ -539,7 +539,7 @@ Change password by reset key
 - Content-Type: `application/json` or `application/x-www-form-urlencoded` or `multipart/form-data`
 - x-api-key: <USER_API_KEY>
 - Fields:
-  - current_password -> Reset key given after confirm verification code
+  - current_password -> User current password
   - new_password -> New password
 
 ### Response
